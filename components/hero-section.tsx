@@ -14,23 +14,23 @@ const features = [
 
 const heroStripImages = [
   {
-    src: "/images/hero-strip/treadmill-training.jpg",
+    src: "/images/excellence/img1 (1).jpeg",
     alt: "Athlete training on treadmill in modern gym facility",
   },
   {
-    src: "/images/hero-strip/dumbbell-floor.jpg",
+    src: "/images/excellence/img1 (2).jpeg",
     alt: "Professional dumbbell on gym floor with ATHLELAND branding",
   },
   {
-    src: "/images/hero-strip/gym-class-wide.jpg",
+    src: "/images/excellence/img1 (3).jpeg",
     alt: "Wide view of intense group training session with timer display",
   },
   {
-    src: "/images/hero-strip/gym-class-action.jpg",
+    src: "/images/excellence/img1 (4).jpeg",
     alt: "Dynamic group fitness class in action with multiple athletes",
   },
   {
-    src: "/images/hero-strip/battle-ropes.jpg",
+    src: "/images/excellence/img1 (5).jpeg",
     alt: "Athlete performing battle rope exercises in professional gym",
   },
 ]
