@@ -698,6 +698,8 @@ export async function saveApprovedClass(classData: WorkoutClass): Promise<Action
     const approvedClass: WorkoutClass = {
       ...classData,
       status: "approved",
+      intensity: classData.intensity,
+      numericalIntensity: classData.intensity,
     }
 
     if (existingIndex >= 0) {
@@ -706,8 +708,17 @@ export async function saveApprovedClass(classData: WorkoutClass): Promise<Action
       inMemoryClasses.push(approvedClass)
     }
 
-    console.log("Class saved successfully. Total inMemoryClasses:", inMemoryClasses.length)
-    console.log("Approved classes:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
+    console.log("[v0] Class saved successfully. Total inMemoryClasses:", inMemoryClasses.length)
+    console.log("[v0] Approved classes:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
+    console.log("[v0] Saved class data:", approvedClass)
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("adminDataUpdated", {
+          detail: { type: "class", action: "save", data: approvedClass },
+        }),
+      )
+    }
 
     revalidatePath("/admin")
     revalidatePath("/")

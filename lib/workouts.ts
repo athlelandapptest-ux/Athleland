@@ -33,6 +33,7 @@ export interface WorkoutClass {
   time: string
   duration: number
   intensity: number
+  numericalIntensity?: number
   classNumber: string
   classFocus: string
   numberOfBlocks: number
@@ -135,6 +136,7 @@ export const sampleClasses: WorkoutClass[] = [
     time: "6:00 AM",
     duration: 60,
     intensity: 12,
+    numericalIntensity: 12,
     classNumber: "001",
     classFocus: "Functional Fitness",
     numberOfBlocks: 4,
@@ -207,6 +209,7 @@ export const sampleClasses: WorkoutClass[] = [
     time: "7:30 AM",
     duration: 75,
     intensity: 10,
+    numericalIntensity: 10,
     classNumber: "002",
     classFocus: "Strength Training",
     numberOfBlocks: 3,
@@ -291,6 +294,7 @@ export const sampleClasses: WorkoutClass[] = [
     time: "6:00 AM",
     duration: 45,
     intensity: 14,
+    numericalIntensity: 14,
     classNumber: "003",
     classFocus: "Cardio & Conditioning",
     numberOfBlocks: 5,

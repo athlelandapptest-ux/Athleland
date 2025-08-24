@@ -30,8 +30,13 @@ export default function HomePage() {
   const refreshClasses = async () => {
     try {
       const classesData = await fetchAllClasses()
-      console.log("Refreshed classes:", classesData.length)
+      console.log("[v0] Refreshed classes:", classesData.length)
+      console.log("[v0] Classes data:", classesData)
       setClasses(classesData)
+
+      const today = new Date().toISOString().split("T")[0]
+      const todayClass = classesData.find((cls) => cls.date === today)
+      setTodaysWorkout(todayClass || null)
     } catch (error) {
       console.error("Error refreshing classes:", error)
     }
@@ -41,7 +46,8 @@ export default function HomePage() {
     const loadData = async () => {
       try {
         const [classesData, programData] = await Promise.all([fetchAllClasses(), getCurrentProgram()])
-        console.log("Initial load - classes:", classesData.length)
+        console.log("[v0] Initial load - classes:", classesData.length)
+        console.log("[v0] Initial classes data:", classesData)
         setClasses(classesData)
         setCurrentProgram(programData)
 
@@ -57,15 +63,29 @@ export default function HomePage() {
 
     loadData()
 
+    const handleAdminUpdate = (event: CustomEvent) => {
+      console.log("[v0] Admin update received:", event.detail)
+      if (event.detail.type === "class") {
+        refreshClasses()
+      }
+    }
+
+    window.addEventListener("adminDataUpdated", handleAdminUpdate as EventListener)
+
     const interval = setInterval(refreshClasses, 10000)
-    return () => clearInterval(interval)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener("adminDataUpdated", handleAdminUpdate as EventListener)
+    }
   }, [])
 
   const filteredClasses = classes.filter((cls) => {
     if (selectedFilter === "all") return true
-    if (selectedFilter === "beginner") return cls.numericalIntensity <= 5
-    if (selectedFilter === "intermediate") return cls.numericalIntensity > 5 && cls.numericalIntensity <= 10
-    if (selectedFilter === "advanced") return cls.numericalIntensity > 10
+    const intensity = cls.intensity || cls.numericalIntensity || 5
+    if (selectedFilter === "beginner") return intensity <= 5
+    if (selectedFilter === "intermediate") return intensity > 5 && intensity <= 10
+    if (selectedFilter === "advanced") return intensity > 10
     return true
   })
 
