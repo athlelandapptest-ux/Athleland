@@ -2,8 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+
+html {
+  font-family: var(--font-sans, "Inter", -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-sans: var(--geist-sans-variable, "Inter");
+  --font-mono: var(--geist-mono-variable, monospace);
+}
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   background: #000000;
   color: #ffffff;
 }
@@ -92,7 +97,7 @@ h6 {
 }
 
 .font-display {
-  font-family: "Inter", sans-serif;
+  font-family: var(--font-sans, "Inter", sans-serif);
   font-weight: 100;
   letter-spacing: -0.04em;
 }
