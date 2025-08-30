@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
+import { 
   Plus,
   Edit,
   Trash2,
@@ -30,7 +30,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import Image from "next/image"
-import type { Event, EventSponsor } from "@/lib/events"
+import { Event, EventSponsor } from "@/lib/events"
 import {
   fetchAllEvents,
   fetchAllSponsors,
@@ -45,23 +45,19 @@ import {
   uploadSponsorLogo,
 } from "@/app/actions"
 
-interface EventManagementProps {
-  onEventUpdate?: () => void
-}
-
-export function EventManagement({ onEventUpdate }: EventManagementProps) {
-  const [events, setEvents] = useState<Event[]>([])
-  const [sponsors, setSponsors] = useState<EventSponsor[]>([])
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null)
-  const [editingSponsor, setEditingSponsor] = useState<EventSponsor | null>(null)
+export function EventManagement() {
+  const [events, setEvents] = useState([])
+  const [sponsors, setSponsors] = useState([])
+  const [editingEvent, setEditingEvent] = useState(null)
+  const [editingSponsor, setEditingSponsor] = useState(null)
   const [isCreatingEvent, setIsCreatingEvent] = useState(false)
   const [isCreatingSponsor, setIsCreatingSponsor] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("events")
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [uploadMessage, setUploadMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const logoInputRef = useRef<HTMLInputElement>(null)
+  const [uploadMessage, setUploadMessage] = useState(null)
+  const fileInputRef = useRef(null)
+  const logoInputRef = useRef(null)
 
   useEffect(() => {
     loadData()
@@ -80,7 +76,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
   }
 
   // Real image upload using Vercel Blob
-  const handleImageUpload = async (file: File, type: "event" | "sponsor") => {
+  const handleImageUpload = async (file, type) => {
     setUploadingImage(true)
     setUploadMessage(null)
 
@@ -101,13 +97,13 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
         } else if (type === "sponsor" && editingSponsor) {
           updateEditingSponsor({ logo: result.data })
         }
-        setUploadMessage({ type: "success", text: result.message || "Upload successful!" })
+        setUploadMessage(result.message || "Upload successful!")
       } else {
-        setUploadMessage({ type: "error", text: result.message || "Upload failed" })
+        setUploadMessage(result.message || "Upload failed")
       }
     } catch (error) {
       console.error("Upload error:", error)
-      setUploadMessage({ type: "error", text: "Upload failed. Please try again." })
+      setUploadMessage("Upload failed. Please try again.")
     } finally {
       setUploadingImage(false)
       // Clear message after 3 seconds
@@ -115,7 +111,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const triggerImageUpload = (type: "event" | "sponsor") => {
+  const triggerImageUpload = (type) => {
     if (type === "event") {
       fileInputRef.current?.click()
     } else {
@@ -125,7 +121,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
 
   // Event Management Functions
   const handleCreateEvent = () => {
-    const newEvent: Event = {
+    const newEvent = {
       id: "",
       title: "",
       description: "",
@@ -156,7 +152,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     setIsCreatingEvent(true)
   }
 
-  const handleEditEvent = (event: Event) => {
+  const handleEditEvent = (event) => {
     setEditingEvent({ ...event })
     setIsCreatingEvent(false)
   }
@@ -186,7 +182,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const handleDeleteEvent = async (id: string) => {
+  const handleDeleteEvent = async (id) => {
     if (confirm("Are you sure you want to delete this event?")) {
       try {
         const result = await deleteEvent(id)
@@ -200,7 +196,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const handleToggleEventStatus = async (id: string, status: Event["status"]) => {
+  const handleToggleEventStatus = async (id, status) => {
     try {
       const result = await toggleEventStatus(id, status)
       if (result.success) {
@@ -214,7 +210,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
 
   // Sponsor Management Functions
   const handleCreateSponsor = () => {
-    const newSponsor: EventSponsor = {
+    const newSponsor = {
       id: "",
       name: "",
       logo: "",
@@ -226,7 +222,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     setIsCreatingSponsor(true)
   }
 
-  const handleEditSponsor = (sponsor: EventSponsor) => {
+  const handleEditSponsor = (sponsor) => {
     setEditingSponsor({ ...sponsor })
     setIsCreatingSponsor(false)
   }
@@ -254,7 +250,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const handleDeleteSponsor = async (id: string) => {
+  const handleDeleteSponsor = async (id) => {
     if (confirm("Are you sure you want to delete this sponsor?")) {
       try {
         const result = await deleteSponsor(id)
@@ -269,19 +265,19 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const updateEditingEvent = (updates: Partial<Event>) => {
+  const updateEditingEvent = (updates) => {
     if (editingEvent) {
       setEditingEvent({ ...editingEvent, ...updates })
     }
   }
 
-  const updateEditingSponsor = (updates: Partial<EventSponsor>) => {
+  const updateEditingSponsor = (updates) => {
     if (editingSponsor) {
       setEditingSponsor({ ...editingSponsor, ...updates })
     }
   }
 
-  const getCategoryColor = (category: string) => {
+  const getCategoryColor = (category) => {
     switch (category) {
       case "workshop":
         return "bg-purple-600/20 text-purple-400 border-purple-600/30"
@@ -296,7 +292,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case "published":
         return "bg-green-600/20 text-green-400 border-green-600/30"
@@ -311,7 +307,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
     }
   }
 
-  const getTierColor = (tier: string) => {
+  const getTierColor = (tier) => {
     switch (tier) {
       case "platinum":
         return "bg-gray-300/20 text-gray-300 border-gray-300/30"
@@ -445,7 +441,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
                     <Label className="text-white font-light">Category</Label>
                     <Select
                       value={editingEvent.category}
-                      onValueChange={(value: any) => updateEditingEvent({ category: value })}
+                      onValueChange={(value) => updateEditingEvent({ category: value })}
                     >
                       <SelectTrigger className="bg-white/5 border-white/20 text-white font-light">
                         <SelectValue />
@@ -463,7 +459,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
                     <Label className="text-white font-light">Difficulty</Label>
                     <Select
                       value={editingEvent.difficulty}
-                      onValueChange={(value: any) => updateEditingEvent({ difficulty: value })}
+                      onValueChange={(value) => updateEditingEvent({ difficulty: value })}
                     >
                       <SelectTrigger className="bg-white/5 border-white/20 text-white font-light">
                         <SelectValue />
@@ -560,7 +556,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
                     <Label className="text-white font-light">Status</Label>
                     <Select
                       value={editingEvent.status}
-                      onValueChange={(value: any) => updateEditingEvent({ status: value })}
+                      onValueChange={(value) => updateEditingEvent({ status: value })}
                     >
                       <SelectTrigger className="bg-white/5 border-white/20 text-white font-light">
                         <SelectValue />
@@ -907,7 +903,7 @@ export function EventManagement({ onEventUpdate }: EventManagementProps) {
                     <Label className="text-white font-light">Sponsorship Tier</Label>
                     <Select
                       value={editingSponsor.tier}
-                      onValueChange={(value: any) => updateEditingSponsor({ tier: value })}
+                      onValueChange={(value) => updateEditingSponsor({ tier: value })}
                     >
                       <SelectTrigger className="bg-white/5 border-white/20 text-white font-light">
                         <SelectValue />

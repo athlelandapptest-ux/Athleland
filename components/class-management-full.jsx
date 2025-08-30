@@ -10,12 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Clock, Users, Zap, Plus, Eye } from "lucide-react"
 import { fetchAllClassesAdmin, getAllRoutineKeys, generateClassPreview, saveApprovedClass } from "@/app/actions"
-import type { WorkoutClass } from "@/lib/workouts"
+import { WorkoutClass } from "@/lib/workouts"
 
 export function ClassManagementFull() {
   const [activeTab, setActiveTab] = useState("overview")
-  const [classes, setClasses] = useState<WorkoutClass[]>([])
-  const [templates, setTemplates] = useState<{ key: string; title: string }[]>([])
+  const [classes, setClasses] = useState([])
+  const [templates, setTemplates] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
 
@@ -29,7 +29,7 @@ export function ClassManagementFull() {
     maxParticipants: 20,
   })
 
-  const [classPreview, setClassPreview] = useState<WorkoutClass | null>(null)
+  const [classPreview, setClassPreview] = useState(null)
 
   useEffect(() => {
     loadData()

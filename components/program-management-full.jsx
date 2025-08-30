@@ -36,32 +36,12 @@ import {
   createProgram,
 } from "@/app/actions"
 
-interface Phase {
-  id: string
-  name: string
-  weeks: number
-  focus: string
-  startWeek: number
-  endWeek: number
-  status: "completed" | "current" | "upcoming"
-}
-
-interface Program {
-  id: string
-  name: string
-  subtitle: string
-  startDate: string
-  currentWeek: number
-  totalWeeks: number
-  phases: Phase[]
-}
-
 export function ProgramManagementFull() {
   const [activeTab, setActiveTab] = useState("overview")
-  const [currentProgram, setCurrentProgram] = useState<Program | null>(null)
+  const [currentProgram, setCurrentProgram] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
-  const [editingPhase, setEditingPhase] = useState<Phase | null>(null)
+  const [editingPhase, setEditingPhase] = useState(null)
   const [isAddingPhase, setIsAddingPhase] = useState(false)
   const [newPhase, setNewPhase] = useState({ name: "", weeks: 4, focus: "" })
   const [isCreatingProgram, setIsCreatingProgram] = useState(false)
@@ -69,7 +49,7 @@ export function ProgramManagementFull() {
     name: "",
     subtitle: "",
     startDate: "",
-    phases: [] as { name: string; weeks: number; focus: string }[],
+    phases: [],
   })
   const [newProgramPhase, setNewProgramPhase] = useState({ name: "", weeks: 4, focus: "" })
 
@@ -84,18 +64,18 @@ export function ProgramManagementFull() {
       loadCurrentProgram()
     }
 
-    const handleWeeksUpdate = (event: CustomEvent) => {
+    const handleWeeksUpdate = (event) => {
       if (currentProgram) {
         setCurrentProgram((prev) => (prev ? { ...prev, totalWeeks: event.detail.totalWeeks } : null))
       }
     }
 
     window.addEventListener("programUpdated", handleProgramUpdate)
-    window.addEventListener("programWeeksUpdated", handleWeeksUpdate as EventListener)
+    window.addEventListener("programWeeksUpdated", handleWeeksUpdate)
 
     return () => {
       window.removeEventListener("programUpdated", handleProgramUpdate)
-      window.removeEventListener("programWeeksUpdated", handleWeeksUpdate as EventListener)
+      window.removeEventListener("programWeeksUpdated", handleWeeksUpdate)
     }
   }, [currentProgram])
 
@@ -111,7 +91,7 @@ export function ProgramManagementFull() {
     }
   }
 
-  const handleWeekChange = async (newWeek: number) => {
+  const handleWeekChange = async (newWeek) => {
     if (!currentProgram) return
 
     try {
@@ -119,7 +99,7 @@ export function ProgramManagementFull() {
       if (result.success) {
         // Update local state immediately
         const updatedPhases = currentProgram.phases.map((phase) => {
-          let status: "completed" | "current" | "upcoming"
+          let status = "completed" | "current" | "upcoming"
           if (newWeek > phase.endWeek) {
             status = "completed"
           } else if (newWeek >= phase.startWeek && newWeek <= phase.endWeek) {
@@ -148,14 +128,14 @@ export function ProgramManagementFull() {
     }
   }
 
-  const recalculatePhases = (phases: Phase[]) => {
+  const recalculatePhases = (phases) => {
     let currentWeekCounter = 1
     return phases.map((phase) => {
       const startWeek = currentWeekCounter
       const endWeek = currentWeekCounter + phase.weeks - 1
       currentWeekCounter += phase.weeks
 
-      let status: "completed" | "current" | "upcoming"
+      let status = "completed" | "current" | "upcoming"
       if (currentProgram && currentProgram.currentWeek > endWeek) {
         status = "completed"
       } else if (currentProgram && currentProgram.currentWeek >= startWeek && currentProgram.currentWeek <= endWeek) {
@@ -186,7 +166,7 @@ export function ProgramManagementFull() {
     }
   }
 
-  const handleUpdatePhase = async (phaseId: string, updates: { name: string; weeks: number; focus: string }) => {
+  const handleUpdatePhase = async (phaseId, updates) => {
     try {
       const result = await updateProgramPhase(phaseId, updates)
       if (result.success) {
@@ -201,7 +181,7 @@ export function ProgramManagementFull() {
     }
   }
 
-  const handleDeletePhase = async (phaseId: string) => {
+  const handleDeletePhase = async (phaseId) => {
     if (!confirm("Are you sure you want to delete this phase?")) return
 
     try {
@@ -217,7 +197,7 @@ export function ProgramManagementFull() {
     }
   }
 
-  const handlePhaseDurationChange = (phaseId: string, newWeeks: number) => {
+  const handlePhaseDurationChange = (phaseId, newWeeks) => {
     if (!currentProgram) return
 
     const updatedPhases = currentProgram.phases.map((phase) =>
@@ -245,7 +225,7 @@ export function ProgramManagementFull() {
     )
   }
 
-  const getWeekDate = (weekNumber: number) => {
+  const getWeekDate = (weekNumber) => {
     if (!currentProgram) return ""
     const startDate = new Date(currentProgram.startDate)
     const weekDate = new Date(startDate)
@@ -279,7 +259,7 @@ export function ProgramManagementFull() {
     }
   }
 
-  const calculateTotalWeeks = (phases: { weeks: number }[]) => {
+  const calculateTotalWeeks = (phases) => {
     return phases.reduce((total, phase) => total + phase.weeks, 0)
   }
 
@@ -293,14 +273,14 @@ export function ProgramManagementFull() {
     setNewProgramPhase({ name: "", weeks: 4, focus: "" })
   }
 
-  const removePhaseFromNewProgram = (index: number) => {
+  const removePhaseFromNewProgram = (index) => {
     setProgramForm((prev) => ({
       ...prev,
       phases: prev.phases.filter((_, i) => i !== index),
     }))
   }
 
-  const updatePhaseInNewProgram = (index: number, field: string, value: string | number) => {
+  const updatePhaseInNewProgram = (index, field, value) => {
     setProgramForm((prev) => ({
       ...prev,
       phases: prev.phases.map((phase, i) => (i === index ? { ...phase, [field]: value } : phase)),

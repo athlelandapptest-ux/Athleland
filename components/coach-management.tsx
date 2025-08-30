@@ -95,6 +95,7 @@ export function CoachManagement() {
       phone: coach.contact.phone || "",
       isActive: coach.isActive,
     })
+    
     setIsCreating(true)
   }
 

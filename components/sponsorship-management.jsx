@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { useState, useEffect } from "react"
 import { Plus, Edit, Trash2, Mail, Phone, Building, Star, Check, X } from "lucide-react"
@@ -11,32 +11,11 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-interface SponsorshipPackage {
-  id: string
-  name: string
-  price: number
-  duration: string
-  features: string[]
-  highlighted: boolean
-  available: boolean
-}
-
-interface SponsorshipInquiry {
-  id: string
-  companyName: string
-  contactName: string
-  email: string
-  phone: string
-  packageInterest: string
-  message: string
-  status: "pending" | "contacted" | "approved" | "rejected"
-  createdAt: string
-}
 
 export function SponsorshipManagement() {
-  const [packages, setPackages] = useState<SponsorshipPackage[]>([])
-  const [inquiries, setInquiries] = useState<SponsorshipInquiry[]>([])
-  const [editingPackage, setEditingPackage] = useState<SponsorshipPackage | null>(null)
+  const [packages, setPackages] = useState([])
+  const [inquiries, setInquiries] = useState([])
+  const [editingPackage, setEditingPackage] = useState(null)
   const [showPackageForm, setShowPackageForm] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -109,7 +88,7 @@ export function SponsorshipManagement() {
     }
   }
 
-  const handleSavePackage = async (packageData: Omit<SponsorshipPackage, "id">) => {
+  const handleSavePackage = async (packageData) => {
     try {
       const method = editingPackage ? "PUT" : "POST"
       const url = editingPackage ? `/api/sponsorship-packages/${editingPackage.id}` : "/api/sponsorship-packages"
@@ -130,7 +109,7 @@ export function SponsorshipManagement() {
     }
   }
 
-  const handleDeletePackage = async (id: string) => {
+  const handleDeletePackage = async (id) => {
     if (!confirm("Are you sure you want to delete this package?")) return
 
     try {
@@ -146,7 +125,7 @@ export function SponsorshipManagement() {
     }
   }
 
-  const handleUpdateInquiryStatus = async (id: string, status: SponsorshipInquiry["status"]) => {
+  const handleUpdateInquiryStatus = async (id, status) => {
     try {
       const response = await fetch(`/api/sponsorship-inquiries/${id}`, {
         method: "PUT",
@@ -162,7 +141,7 @@ export function SponsorshipManagement() {
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case "pending":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
@@ -378,10 +357,6 @@ function PackageForm({
   package: pkg,
   onSave,
   onCancel,
-}: {
-  package: SponsorshipPackage | null
-  onSave: (data: Omit<SponsorshipPackage, "id">) => void
-  onCancel: () => void
 }) {
   const [formData, setFormData] = useState({
     name: pkg?.name || "",
@@ -392,7 +367,7 @@ function PackageForm({
     available: pkg?.available || true,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
     onSave({
       ...formData,
@@ -407,14 +382,14 @@ function PackageForm({
     }))
   }
 
-  const removeFeature = (index: number) => {
+  const removeFeature = (index) => {
     setFormData((prev) => ({
       ...prev,
       features: prev.features.filter((_, i) => i !== index),
     }))
   }
 
-  const updateFeature = (index: number, value: string) => {
+  const updateFeature = (index, value) => {
     setFormData((prev) => ({
       ...prev,
       features: prev.features.map((f, i) => (i === index ? value : f)),

@@ -10,11 +10,17 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Plus, Trash2, Edit, Save, X, Zap } from "lucide-react"
-import { getAllRoutineKeys, createWorkoutRoutine, generateClassTone } from "@/app/actions"
-import type { WorkoutRoutine, Round, Exercise } from "@/lib/workouts"
+import {
+  createWorkoutTemplate,
+  fetchAllWorkoutTemplates,
+  updateWorkoutTemplate,
+  deleteWorkoutTemplate,
+  generateClassTone,
+} from "@/app/actions"
+import { WorkoutTemplate as WorkoutTemplateType, Round, Exercise } from "@/lib/workouts"
 
 // Smart equipment detection function
-const detectEquipment = (name: string): string[] => {
+const detectEquipment = (name) => {
   // Placeholder implementation
   const equipmentList = ["Body Weight", "Dumbbells", "Kettlebells", "Barbells"]
   return equipmentList.filter((eq) => name.toLowerCase().includes(eq.toLowerCase()))
@@ -22,22 +28,24 @@ const detectEquipment = (name: string): string[] => {
 
 export function WorkoutTemplates() {
   const [activeTab, setActiveTab] = useState("library")
-  const [templates, setTemplates] = useState<{ key: string; title: string }[]>([])
+  const [templates, setTemplates] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
+  const [editingTemplate, setEditingTemplate] = useState(null)
 
   // Template Builder State
-  const [newTemplate, setNewTemplate] = useState<WorkoutRoutine>({
+  const [newTemplate, setNewTemplate] = useState({
     title: "",
     description: "",
     rounds: [
       {
         id: "1",
+        name: "Block 1",
         exercises: [
           {
             id: "1",
             name: "",
-            reps: 10,
+            value: 10,
             unit: "REPS",
             weight: "",
             equipment: "Body Weight",
@@ -51,7 +59,7 @@ export function WorkoutTemplates() {
       },
     ],
     hyroxPrepTypes: [],
-    routineReasoning: "",
+    hyroxReasoning: "",
     otherHyroxPrepNotes: "",
   })
 
@@ -64,7 +72,7 @@ export function WorkoutTemplates() {
   const loadTemplates = async () => {
     setIsLoading(true)
     try {
-      const templatesData = await getAllRoutineKeys()
+      const templatesData = await fetchAllWorkoutTemplates()
       setTemplates(templatesData)
     } catch (error) {
       console.error("Error loading templates:", error)
@@ -96,7 +104,7 @@ export function WorkoutTemplates() {
     },
   }
 
-  const applyWorkoutTypeDefaults = (type: keyof typeof workoutTypeDefaults) => {
+  const applyWorkoutTypeDefaults = (type) => {
     const defaults = workoutTypeDefaults[type]
     setNewTemplate((prev) => ({
       ...prev,
@@ -107,13 +115,14 @@ export function WorkoutTemplates() {
 
   // Template Builder Functions
   const addRound = () => {
-    const newRound: Round = {
+    const newRound = {
       id: Date.now().toString(),
+      name: `Block ${newTemplate.rounds.length + 1}`,
       exercises: [
         {
           id: Date.now().toString(),
           name: "",
-          reps: 10,
+          value: 10,
           unit: "REPS",
           weight: "",
           equipment: "Body Weight",
@@ -125,24 +134,25 @@ export function WorkoutTemplates() {
       ],
       roundsPerBlock: 3,
     }
+    
     setNewTemplate((prev) => ({
       ...prev,
       rounds: [...prev.rounds, newRound],
     }))
   }
 
-  const removeRound = (roundId: string) => {
+  const removeRound = (roundId) => {
     setNewTemplate((prev) => ({
       ...prev,
       rounds: prev.rounds.filter((round) => round.id !== roundId),
     }))
   }
 
-  const addExercise = (roundId: string) => {
-    const newExercise: Exercise = {
+  const addExercise = (roundId) => {
+    const newExercise = {
       id: Date.now().toString(),
       name: "",
-      reps: 10,
+      value: 10,
       unit: "REPS",
       weight: "",
       equipment: "Body Weight",
@@ -160,7 +170,7 @@ export function WorkoutTemplates() {
     }))
   }
 
-  const removeExercise = (roundId: string, exerciseId: string) => {
+  const removeExercise = (roundId, exerciseId) => {
     setNewTemplate((prev) => ({
       ...prev,
       rounds: prev.rounds.map((round) =>
@@ -169,7 +179,7 @@ export function WorkoutTemplates() {
     }))
   }
 
-  const updateExercise = (roundId: string, exerciseId: string, updates: Partial<Exercise>) => {
+  const updateExercise = (roundId, exerciseId, updates) => {
     setNewTemplate((prev) => ({
       ...prev,
       rounds: prev.rounds.map((round) =>
@@ -194,7 +204,7 @@ export function WorkoutTemplates() {
       })
 
       if (result.success && result.data) {
-        setNewTemplate((prev) => ({ ...prev, routineReasoning: result.data }))
+        setNewTemplate((prev) => ({ ...prev, hyroxReasoning: result.data }))
       }
     } catch (error) {
       console.error("Error generating tone:", error)
@@ -205,18 +215,22 @@ export function WorkoutTemplates() {
 
   const handleSaveTemplate = async () => {
     try {
-      const formData = new FormData()
-      formData.append("title", newTemplate.title)
-      formData.append("description", newTemplate.description)
-      formData.append("roundsData", JSON.stringify(newTemplate.rounds))
-      formData.append("routineReasoning", newTemplate.routineReasoning)
-      formData.append("otherHyroxPrepNotes", newTemplate.otherHyroxPrepNotes)
+      const templateData = {
+        title: newTemplate.title,
+        description: newTemplate.description,
+        rounds: newTemplate.rounds,
+        hyroxPrepTypes: newTemplate.hyroxPrepTypes,
+        hyroxReasoning: newTemplate.hyroxReasoning,
+        otherHyroxPrepNotes: newTemplate.otherHyroxPrepNotes,
+      }
 
-      newTemplate.hyroxPrepTypes.forEach((type) => {
-        formData.append(`hyroxPrepTypes-${type}`, "on")
-      })
+      let result
+      if (editingTemplate) {
+        result = await updateWorkoutTemplate(editingTemplate.id, templateData)
+      } else {
+        result = await createWorkoutTemplate(templateData)
+      }
 
-      const result = await createWorkoutRoutine(formData)
       if (result.success) {
         await loadTemplates()
         resetForm()
@@ -224,6 +238,33 @@ export function WorkoutTemplates() {
       }
     } catch (error) {
       console.error("Error saving template:", error)
+    }
+  }
+
+  const handleEdit = (template) => {
+    setEditingTemplate(template)
+    setNewTemplate({
+      title: template.title,
+      description: template.description,
+      rounds: template.rounds,
+      hyroxPrepTypes: template.hyroxPrepTypes || [],
+      hyroxReasoning: template.hyroxReasoning || "",
+      otherHyroxPrepNotes: template.otherHyroxPrepNotes || "",
+    })
+    setCurrentStep(1)
+    setActiveTab("create")
+  }
+
+  const handleDelete = async (templateId) => {
+    if (window.confirm("Are you sure you want to delete this template?")) {
+      try {
+        const result = await deleteWorkoutTemplate(templateId)
+        if (result.success) {
+          loadTemplates()
+        }
+      } catch (error) {
+        console.error("Error deleting template:", error)
+      }
     }
   }
 
@@ -252,17 +293,18 @@ export function WorkoutTemplates() {
         },
       ],
       hyroxPrepTypes: [],
-      routineReasoning: "",
+      hyroxReasoning: "",
       otherHyroxPrepNotes: "",
     })
     setCurrentStep(1)
+    setEditingTemplate(null)
   }
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 4))
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1))
 
   // Smart equipment detection function
-  const handleExerciseNameChange = (roundId: string, exerciseId: string, name: string) => {
+  const handleExerciseNameChange = (roundId, exerciseId, name) => {
     const suggestions = detectEquipment(name)
     updateExercise(roundId, exerciseId, {
       name,
@@ -292,7 +334,7 @@ export function WorkoutTemplates() {
             Template Library
           </TabsTrigger>
           <TabsTrigger value="create" className="data-[state=active]:bg-accent data-[state=active]:text-black">
-            Create New
+            {editingTemplate ? "Edit Template" : "Create New"}
           </TabsTrigger>
         </TabsList>
 
@@ -311,16 +353,31 @@ export function WorkoutTemplates() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {templates.map((template) => (
-                    <Card key={template.key} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+                    <Card key={template.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
                       <CardContent className="p-4">
                         <h3 className="text-white font-medium mb-2">{template.title}</h3>
                         <div className="flex justify-between items-center">
                           <Badge variant="secondary" className="bg-accent/20 text-accent">
                             Template
                           </Badge>
-                          <Button size="sm" variant="ghost" className="text-white/60 hover:text-white">
-                            <Edit className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-white/60 hover:text-white"
+                              onClick={() => handleEdit(template)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-500/80 hover:text-red-500"
+                              onClick={() => handleDelete(template.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -335,7 +392,9 @@ export function WorkoutTemplates() {
           <Card className="glass border-white/10">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white font-light">Create Workout Template</CardTitle>
+                <CardTitle className="text-white font-light">
+                  {editingTemplate ? "Edit Workout Template" : "Create Workout Template"}
+                </CardTitle>
                 <div className="flex items-center space-x-2">
                   {[1, 2, 3, 4].map((step) => (
                     <div
@@ -367,7 +426,7 @@ export function WorkoutTemplates() {
                           key={type}
                           variant="outline"
                           className="border-white/20 text-white hover:bg-accent hover:text-black bg-transparent"
-                          onClick={() => applyWorkoutTypeDefaults(type as keyof typeof workoutTypeDefaults)}
+                          onClick={() => applyWorkoutTypeDefaults(type)}
                         >
                           {type}
                         </Button>
@@ -501,7 +560,7 @@ export function WorkoutTemplates() {
                                   <select
                                     value={exercise.unit}
                                     onChange={(e) =>
-                                      updateExercise(round.id, exercise.id, { unit: e.target.value as any })
+                                      updateExercise(round.id, exercise.id, { unit: e.target.value })
                                     }
                                     className="w-full bg-gray-700 border-gray-600 text-white text-sm rounded px-2 py-1"
                                   >
@@ -596,8 +655,8 @@ export function WorkoutTemplates() {
                       </Button>
                     </div>
                     <Textarea
-                      value={newTemplate.routineReasoning}
-                      onChange={(e) => setNewTemplate((prev) => ({ ...prev, routineReasoning: e.target.value }))}
+                      value={newTemplate.hyroxReasoning}
+                      onChange={(e) => setNewTemplate((prev) => ({ ...prev, hyroxReasoning: e.target.value }))}
                       className="bg-white/5 border-white/20 text-white min-h-[120px]"
                       placeholder="Explain the reasoning behind this workout structure..."
                     />
@@ -670,7 +729,7 @@ export function WorkoutTemplates() {
                       disabled={!newTemplate.title}
                     >
                       <Save className="h-4 w-4 mr-2" />
-                      Save Template
+                      {editingTemplate ? "Save Changes" : "Save Template"}
                     </Button>
                   )}
                 </div>

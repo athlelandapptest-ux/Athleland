@@ -391,8 +391,8 @@ export default function ClientDashboard() {
         author: "FitnessFan23",
         category: "Training Tips",
         replies: 12,
-        lastActivity: "2 hours ago",
-        excerpt: "Looking for advice on the most effective warm-up routine before HYROX training sessions...",
+        lastActivity: "2025-08-30T08:30:00Z",
+        excerpt: "Looking for advice on the most effective warm-up routine before HYROX training sessions..."
       },
       {
         id: "post-2",
@@ -400,8 +400,8 @@ export default function ClientDashboard() {
         author: "EarlyBird",
         category: "Nutrition",
         replies: 8,
-        lastActivity: "5 hours ago",
-        excerpt: "What's the best approach for fueling 6 AM classes? Should I eat before or after?",
+        lastActivity: "2025-08-30T10:15:00Z",
+        excerpt: "What's the best approach for fueling 6 AM classes? Should I eat before or after?"
       },
     ]
     setForumPosts(posts)

@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/event-management.jsx", "components/class-management-full.jsx", "app/page.jsx", "app/events/page.jsx", "app/actions.js", "lib/neon-actions.js", "components/interactive-calendar.jsx", "components/sponsorship-management.jsx", "components/program-management-full.jsx", "components/workout-templates.jsx", "lib/database.js"],
   "exclude": ["node_modules"]
 }

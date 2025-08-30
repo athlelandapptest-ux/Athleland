@@ -407,8 +407,15 @@ export interface WorkoutRoutine {
   otherHyroxPrepNotes?: string
 }
 
+export interface WorkoutTemplate extends Omit<WorkoutRoutine, "key"> {
+  id: string
+  createdAt: string
+  updatedAt: string
+}
+
 // In-memory data storage
 export const inMemoryRoutines: WorkoutRoutine[] = []
+export const inMemoryWorkoutTemplates: WorkoutTemplate[] = []
 export const inMemoryClasses: WorkoutClass[] = []
 export const inMemoryPrograms: TrainingProgram[] = [
   {

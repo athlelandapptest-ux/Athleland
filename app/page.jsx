@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Zap, Target, Heart, TrendingUp, ArrowRight } from "lucide-react"
 import { getCurrentProgram, fetchAllClasses } from "@/app/actions"
-import type { WorkoutClass } from "@/lib/workouts"
 import { photos } from "@/lib/photos"
 import { SiteHeader } from "@/components/site-header"
 import { ModernClassCard } from "@/components/modern-class-card"
@@ -21,11 +20,11 @@ import { ProgramCalendar } from "@/components/program-calendar"
 import { VisitorWorkoutBreakdown } from "@/components/visitor-workout-breakdown"
 
 export default function HomePage() {
-  const [classes, setClasses] = useState<WorkoutClass[]>([])
-  const [currentProgram, setCurrentProgram] = useState<any>(null)
+  const [classes, setClasses] = useState([])
+  const [currentProgram, setCurrentProgram] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedFilter, setSelectedFilter] = useState<string>("all")
-  const [todaysWorkout, setTodaysWorkout] = useState<WorkoutClass | null>(null)
+  const [selectedFilter, setSelectedFilter] = useState("all")
+  const [todaysWorkout, setTodaysWorkout] = useState(null)
 
   const refreshClasses = async () => {
     try {
@@ -63,20 +62,20 @@ export default function HomePage() {
 
     loadData()
 
-    const handleAdminUpdate = (event: CustomEvent) => {
+    const handleAdminUpdate = (event) => {
       console.log("[v0] Admin update received:", event.detail)
       if (event.detail.type === "class") {
         refreshClasses()
       }
     }
 
-    window.addEventListener("adminDataUpdated", handleAdminUpdate as EventListener)
+    window.addEventListener("adminDataUpdated", handleAdminUpdate)
 
     const interval = setInterval(refreshClasses, 10000)
 
     return () => {
       clearInterval(interval)
-      window.removeEventListener("adminDataUpdated", handleAdminUpdate as EventListener)
+      window.removeEventListener("adminDataUpdated", handleAdminUpdate)
     }
   }, [])
 
@@ -163,8 +162,8 @@ export default function HomePage() {
                     <div className="glass-light rounded-xl p-6 border border-white/5">
                       <h4 className="text-white font-light mb-4 text-lg">Current Phase</h4>
                       {currentProgram.phases
-                        .filter((phase: any) => phase.status === "current")
-                        .map((phase: any) => (
+                        .filter((phase) => phase.status === "current")
+                        .map((phase) => (
                           <div key={phase.id}>
                             <p className="text-accent font-light text-lg">{phase.name}</p>
                             <p className="text-white/60 text-sm font-light mt-2">{phase.focus}</p>

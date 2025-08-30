@@ -12,16 +12,16 @@ import { fetchAllEvents } from "@/app/actions"
 import { EventRegistrationModal } from "@/components/event-registration-modal"
 import { SiteHeader } from "@/components/site-header"
 import { Footer } from "@/components/footer"
-import type { Event } from "@/lib/events"
+import { Event } from "@/lib/events"
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [filteredEvents, setFilteredEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState([])
+  const [filteredEvents, setFilteredEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [selectedEvent, setSelectedEvent] = useState(null)
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false)
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export default function EventsPage() {
     setFilteredEvents(filtered)
   }, [events, searchTerm, statusFilter, typeFilter])
 
-  const handleRegisterClick = (event: Event) => {
+  const handleRegisterClick = (event) => {
     setSelectedEvent(event)
     setIsRegistrationModalOpen(true)
   }
@@ -84,7 +84,7 @@ export default function EventsPage() {
     loadEvents()
   }
 
-  const getEventStatusBadge = (event: Event) => {
+  const getEventStatusBadge = (event) => {
     const isEventFull = event.currentParticipants >= event.maxParticipants
     const isPastDeadline = new Date() > new Date(event.registrationDeadline)
 
@@ -126,14 +126,14 @@ export default function EventsPage() {
     return <Badge className="bg-green-500/20 text-green-400">Open</Badge>
   }
 
-  const canRegister = (event: Event) => {
+  const canRegister = (event) => {
     const isPastDeadline = new Date() > new Date(event.registrationDeadline)
     const isEventFull = event.currentParticipants >= event.maxParticipants
 
     return event.status === "published" && !isPastDeadline && (!isEventFull || (isEventFull && event.allowWaitlist))
   }
 
-  const getRegistrationButtonText = (event: Event) => {
+  const getRegistrationButtonText = (event) => {
     const isEventFull = event.currentParticipants >= event.maxParticipants
 
     if (isEventFull && event.allowWaitlist) {
