@@ -69,6 +69,7 @@ export interface TrainingProgram {
   id: string
   name: string
   subtitle: string
+  description?: string
   startDate: string
   currentWeek: number
   totalWeeks: number
@@ -467,12 +468,144 @@ export const inMemoryWorkoutTemplates: WorkoutTemplate[] = [
     updatedAt: new Date().toISOString(),
   },
 ]
-export const inMemoryClasses: WorkoutClass[] = []
+export const inMemoryClasses: WorkoutClass[] = [
+  {
+    id: "class-001",
+    name: "Morning HIIT Blast",
+    description: "High-intensity interval training to kickstart your day with explosive movements and cardio bursts",
+    date: "2025-09-01",
+    time: "07:00 AM",
+    duration: 45,
+    intensity: 8,
+    numericalIntensity: 8,
+    classNumber: "001",
+    classFocus: "HIIT & Conditioning",
+    numberOfBlocks: 3,
+    difficulty: "Intermediate",
+    maxParticipants: 12,
+    instructor: "Coach Sarah",
+    status: "approved",
+    routine: {
+      rounds: [
+        {
+          name: "Warm-up",
+          exercises: [
+            { name: "Jumping Jacks", value: 30, unit: "seconds" },
+            { name: "High Knees", value: 20, unit: "reps" },
+            { name: "Arm Circles", value: 15, unit: "reps" }
+          ]
+        },
+        {
+          name: "Main Set",
+          exercises: [
+            { name: "Burpees", value: 10, unit: "reps" },
+            { name: "Mountain Climbers", value: 20, unit: "reps" },
+            { name: "Jump Squats", value: 15, unit: "reps" },
+            { name: "Push-ups", value: 12, unit: "reps" }
+          ]
+        }
+      ]
+    },
+    workoutBreakdown: [
+      {
+        title: "Warm-up Circuit",
+        exercises: [
+          { name: "Jumping Jacks", reps: 30, unit: "seconds" },
+          { name: "High Knees", reps: 20, unit: "reps" }
+        ]
+      },
+      {
+        title: "HIIT Circuit",
+        exercises: [
+          { name: "Burpees", reps: 10, unit: "reps" },
+          { name: "Mountain Climbers", reps: 20, unit: "reps" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "class-002", 
+    name: "Strength & Power",
+    description: "Build functional strength and explosive power with compound movements and progressive overload",
+    date: "2025-09-02",
+    time: "06:00 PM", 
+    duration: 60,
+    intensity: 9,
+    numericalIntensity: 9,
+    classNumber: "002",
+    classFocus: "Strength Training",
+    numberOfBlocks: 4,
+    difficulty: "Advanced",
+    maxParticipants: 8,
+    instructor: "Coach Mike",
+    status: "approved",
+    routine: {
+      rounds: [
+        {
+          name: "Strength Block",
+          exercises: [
+            { name: "Deadlifts", value: 5, unit: "reps" },
+            { name: "Squats", value: 8, unit: "reps" },
+            { name: "Bench Press", value: 6, unit: "reps" }
+          ]
+        }
+      ]
+    },
+    workoutBreakdown: [
+      {
+        title: "Compound Movements",
+        exercises: [
+          { name: "Deadlifts", reps: 5, unit: "reps" },
+          { name: "Back Squats", reps: 8, unit: "reps" }
+        ]
+      }
+    ]
+  },
+  {
+    id: "class-003",
+    name: "Recovery Flow",
+    description: "Active recovery session focusing on mobility, flexibility, and gentle movement patterns",
+    date: "2025-09-03",
+    time: "10:00 AM",
+    duration: 30,
+    intensity: 3,
+    numericalIntensity: 3,
+    classNumber: "003", 
+    classFocus: "Recovery & Mobility",
+    numberOfBlocks: 2,
+    difficulty: "Beginner",
+    maxParticipants: 15,
+    instructor: "Coach Emma",
+    status: "approved",
+    routine: {
+      rounds: [
+        {
+          name: "Mobility Flow",
+          exercises: [
+            { name: "Cat-Cow Stretch", value: 10, unit: "reps" },
+            { name: "Hip Circles", value: 8, unit: "each direction" },
+            { name: "Shoulder Rolls", value: 10, unit: "reps" }
+          ]
+        }
+      ]
+    },
+    workoutBreakdown: [
+      {
+        title: "Gentle Movement",
+        exercises: [
+          { name: "Cat-Cow Stretch", reps: 10, unit: "reps" },
+          { name: "Hip Circles", reps: 8, unit: "each side" }
+        ]
+      }
+    ]
+  }
+]
 export const inMemoryPrograms: TrainingProgram[] = [
   {
     id: "program-001",
     name: "HYROX Preparation Program",
     subtitle: "12-week structured training for competitive fitness",
+    description: "A comprehensive training program designed to prepare athletes for HYROX competitions. This program focuses on building endurance, strength, and functional fitness through progressive training phases.",
     startDate: "2025-01-01",
     currentWeek: 8,
     totalWeeks: 12,

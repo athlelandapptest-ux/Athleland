@@ -895,7 +895,7 @@ export function ProgramManagementFull() {
           {/* Calendar Tab - Mobile Optimized */}
           <TabsContent value="calendar" className="space-y-4">
             <div className="w-full overflow-x-auto">
-              <InteractiveCalendar program={currentProgram} />
+              <InteractiveCalendar classes={[]} programs={[currentProgram]} />
             </div>
           </TabsContent>
         </Tabs>

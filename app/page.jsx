@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Zap, Target, Heart, TrendingUp, ArrowRight } from "lucide-react"
-import { getCurrentProgram, fetchAllClasses } from "@/app/actions"
+import { getCurrentProgram, fetchAllClasses, fetchAllPrograms } from "@/app/actions"
 import { photos } from "@/lib/photos"
 import { SiteHeader } from "@/components/site-header"
 import { ModernClassCard } from "@/components/modern-class-card"
@@ -21,6 +21,7 @@ import { VisitorWorkoutBreakdown } from "@/components/visitor-workout-breakdown"
 
 export default function HomePage() {
   const [classes, setClasses] = useState([])
+  const [programs, setPrograms] = useState([])
   const [currentProgram, setCurrentProgram] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedFilter, setSelectedFilter] = useState("all")
@@ -44,11 +45,17 @@ export default function HomePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [classesData, programData] = await Promise.all([fetchAllClasses(), getCurrentProgram()])
+        const [classesData, programData, allProgramsData] = await Promise.all([
+          fetchAllClasses(), 
+          getCurrentProgram(),
+          fetchAllPrograms()
+        ])
         console.log("[v0] Initial load - classes:", classesData.length)
         console.log("[v0] Initial classes data:", classesData)
+        console.log("[v0] All programs:", allProgramsData.length)
         setClasses(classesData)
         setCurrentProgram(programData)
+        setPrograms(allProgramsData)
 
         const today = new Date().toISOString().split("T")[0]
         const todayClass = classesData.find((cls) => cls.date === today)
@@ -244,6 +251,74 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* All Programs Section */}
+      <section className="py-20 bg-black/50 border-t border-white/5" id="programs">
+        <div className="container mx-auto px-6 lg:px-12">
+          <div className="text-center mb-16 animate-fade-in">
+            <div className="inline-flex items-center gap-2 text-white/40 text-sm font-light tracking-wider uppercase mb-6">
+              <div className="w-8 h-px bg-accent"></div>
+              Training Programs
+              <div className="w-8 h-px bg-accent"></div>
+            </div>
+            <h2 className="font-display text-4xl lg:text-5xl font-thin text-white mb-6">Available Programs</h2>
+            <p className="text-white/60 text-lg max-w-2xl mx-auto font-light">
+              Choose from our comprehensive training programs
+            </p>
+          </div>
+
+          {loading ? (
+            <div className="text-center py-20 animate-fade-in">
+              <div className="w-16 h-16 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+              <p className="text-white/60 font-light">Loading programs...</p>
+            </div>
+          ) : programs.length === 0 ? (
+            <div className="text-center py-20 animate-fade-in">
+              <p className="text-white/60 text-lg font-light">No training programs available.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              {programs.map((program, index) => (
+                <Card key={program.id} className="glass border-white/10 animate-fade-in" style={{ animationDelay: `${0.1 * index}s` }}>
+                  <CardHeader>
+                    <CardTitle className="font-display text-2xl font-thin text-white mb-3">
+                      {program.name}
+                    </CardTitle>
+                    <CardDescription className="text-white/60 text-lg font-light">
+                      {program.subtitle}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-white/70 text-sm font-light mb-6">
+                      {program.description}
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="text-center glass-light rounded-xl p-4 border border-white/5">
+                        <div className="font-display text-2xl font-thin text-accent mb-1">
+                          {program.totalWeeks || program.total_weeks}
+                        </div>
+                        <p className="text-white/60 font-light text-sm">Weeks</p>
+                      </div>
+                      <div className="text-center glass-light rounded-xl p-4 border border-white/5">
+                        <div className="font-display text-2xl font-thin text-white mb-1">
+                          {program.phases?.length || 0}
+                        </div>
+                        <p className="text-white/60 font-light text-sm">Phases</p>
+                      </div>
+                    </div>
+
+                    <Button className="w-full bg-accent hover:bg-accent/90 text-black font-medium px-6 py-3 group">
+                      View Program
+                      <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Upcoming Classes Section */}
       <section className="py-20 bg-black border-t border-white/5" id="classes">

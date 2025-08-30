@@ -15,7 +15,6 @@ import {
   adjustRoutineForIntensity,
   getPrimaryClassFocus,
   getIntensityLabel,
-  sampleClasses,
 } from "@/lib/workouts"
 import { SponsorshipRequest, SponsorshipPackage } from "@/lib/sponsorship"
 import { getNeonSql } from "@/lib/database"
@@ -986,8 +985,8 @@ export async function getClassById(classId) {
   }
 }
 
-// Main classes data for the public-facing app
-let classesData = [...sampleClasses]
+// Main classes data for the public-facing app - now empty, only show admin-created classes
+let classesData = []
 
 export async function fetchAllClasses() {
   // Simulate API delay
@@ -1103,6 +1102,40 @@ export async function getCurrentProgram() {
   await new Promise((resolve) => setTimeout(resolve, 400))
   const activeProgram = inMemoryPrograms.find((program) => program.isActive)
   return activeProgram || null
+}
+
+export async function fetchAllPrograms() {
+  if (USE_NEON_FOR_PROGRAMS) {
+    // TODO: Add getAllProgramsNeon() function when database is ready
+    try {
+      const { Pool } = await import('@neondatabase/serverless')
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+      
+      const result = await pool.query(`
+        SELECT 
+          p.id,
+          p.name,
+          p.subtitle,
+          p.description,
+          p.total_weeks,
+          p.current_week,
+          p.status,
+          p.created_at,
+          CASE WHEN p.status = 'active' THEN true ELSE false END as "isActive"
+        FROM programs p
+        ORDER BY p.created_at DESC
+      `)
+      
+      return result.rows
+    } catch (error) {
+      console.error('Error fetching all programs from Neon:', error)
+      // Fallback to in-memory
+    }
+  }
+
+  // Fallback to existing in-memory implementation
+  await new Promise((resolve) => setTimeout(resolve, 200))
+  return inMemoryPrograms
 }
 
 export async function updateProgramWeek(newWeek) {
