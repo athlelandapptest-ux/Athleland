@@ -18,6 +18,7 @@ import {
   sampleClasses,
 } from "@/lib/workouts"
 import { SponsorshipRequest, SponsorshipPackage } from "@/lib/sponsorship"
+import { getNeonSql } from "@/lib/database"
 
 // Import Neon functions for gradual migration
 import {
@@ -624,7 +625,7 @@ export async function getRoutineByKey(key) {
 
 // Class management actions
 export async function generateClassPreview(
-  routineKeys,
+  templateKeys,
   date,
   time,
   intensity,
@@ -645,44 +646,81 @@ export async function generateClassPreview(
         : maxClassNumber + 1
     }
 
-    const routines = []
-    for (const key of routineKeys) {
-      const routine = await getRoutineByKey(key)
-      if (routine) {
-        routines.push(adjustRoutineForIntensity(routine, intensity))
+    // Get workout templates instead of routines
+    const templates = []
+    for (const templateId of templateKeys) {
+      const template = await getWorkoutTemplateById(templateId)
+      if (template) {
+        templates.push(template)
       }
     }
 
-    if (routines.length === 0) {
-      return { success: false, message: "No valid routines found" }
+    if (templates.length === 0) {
+      return { success: false, message: "No valid workout templates found" }
     }
 
-    const primaryRoutine = routines[0]
-    const className =
-      routines.length === 1
-        ? `${primaryRoutine.title} (${getIntensityLabel(intensity)} Intensity)`
-        : `Multi-Routine Class (${getIntensityLabel(intensity)} Intensity)`
+    const primaryTemplate = templates[0]
+    const className = primaryTemplate.title
+    const classDescription = primaryTemplate.description || `High-intensity workout session`
 
-    const classDescription =
-      routines.length === 1
-        ? primaryRoutine.description
-        : `Combined workout featuring: ${routines.map((r) => r.title).join(", ")}`
+    // Convert template rounds to workout breakdown format
+    const workoutBreakdown = []
+    
+    try {
+      const rounds = typeof primaryTemplate.rounds === 'string' 
+        ? JSON.parse(primaryTemplate.rounds) 
+        : primaryTemplate.rounds
+      
+      if (Array.isArray(rounds)) {
+        rounds.forEach((round, index) => {
+          if (round.exercises && Array.isArray(round.exercises)) {
+            workoutBreakdown.push({
+              title: `Round ${index + 1}`,
+              exercises: round.exercises.map(exercise => ({
+                name: exercise.name,
+                reps: exercise.reps,
+                duration: exercise.duration,
+                distance: exercise.distance,
+                weight: exercise.weight,
+                unit: exercise.type === 'reps' ? 'reps' : 
+                      exercise.type === 'time' ? 'seconds' :
+                      exercise.type === 'distance' ? (exercise.unit || 'meters') :
+                      'reps'
+              }))
+            })
+          }
+        })
+      }
+    } catch (parseError) {
+      console.error("Error parsing template rounds:", parseError)
+      // Fallback workout breakdown
+      workoutBreakdown.push({
+        title: "Main Workout",
+        exercises: [
+          { name: "Full Body Circuit", duration: duration - 10, unit: "minutes" }
+        ]
+      })
+    }
 
     const classPreview = {
       id: editingClassId || `class-${Date.now()}`,
       classNumber: nextClassNumber,
-      name: className,
+      title: className,
       description: classDescription,
       date,
       time,
       duration,
+      intensity: intensity,
       numericalIntensity: intensity,
       numberOfBlocks,
       maxParticipants,
       instructor,
-      routine: routines[0],
-      routines: routines.length > 1 ? routines : undefined,
-      classFocus: getPrimaryClassFocus(routines),
+      routine: {
+        title: primaryTemplate.title,
+        description: primaryTemplate.description,
+        key: primaryTemplate.id
+      },
+      workoutBreakdown,
       status: "draft",
     }
 
@@ -695,8 +733,8 @@ export async function generateClassPreview(
 
 export async function saveApprovedClass(classData) {
   try {
-    const existingIndex = inMemoryClasses.findIndex((cls) => cls.id === classData.id)
-
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
     const approvedClass = {
       ...classData,
       status: "approved",
@@ -704,15 +742,68 @@ export async function saveApprovedClass(classData) {
       numericalIntensity: classData.intensity,
     }
 
-    if (existingIndex >= 0) {
-      inMemoryClasses[existingIndex] = approvedClass
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      // Check if class already exists (for updates)
+      const existingClass = await sql`
+        SELECT id FROM classes WHERE id = ${classData.id}
+      `
+      
+      if (existingClass.length > 0) {
+        // Update existing class
+        await sql`
+          UPDATE classes SET 
+            title = ${approvedClass.title},
+            description = ${approvedClass.description || ''},
+            routine = ${JSON.stringify(approvedClass.routine)}::jsonb,
+            instructor = ${approvedClass.instructor},
+            date = ${approvedClass.date},
+            time = ${approvedClass.time},
+            duration = ${approvedClass.duration || 60},
+            intensity = ${approvedClass.intensity || 8},
+            status = ${approvedClass.status},
+            maxParticipants = ${approvedClass.maxParticipants || 20},
+            workoutBreakdown = ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = ${classData.id}
+        `
+      } else {
+        // Insert new class
+        await sql`
+          INSERT INTO classes (
+            id, title, description, routine, instructor, date, time, 
+            duration, intensity, status, maxParticipants, workoutBreakdown
+          ) VALUES (
+            ${approvedClass.id},
+            ${approvedClass.title},
+            ${approvedClass.description || ''},
+            ${JSON.stringify(approvedClass.routine)}::jsonb,
+            ${approvedClass.instructor},
+            ${approvedClass.date},
+            ${approvedClass.time},
+            ${approvedClass.duration || 60},
+            ${approvedClass.intensity || 8},
+            ${approvedClass.status},
+            ${approvedClass.maxParticipants || 20},
+            ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb
+          )
+        `
+      }
+      
+      console.log("[Neon] Class saved successfully to database:", approvedClass.id)
     } else {
-      inMemoryClasses.push(approvedClass)
-    }
+      // Fallback to in-memory storage
+      const existingIndex = inMemoryClasses.findIndex((cls) => cls.id === classData.id)
 
-    console.log("[v0] Class saved successfully. Total inMemoryClasses:", inMemoryClasses.length)
-    console.log("[v0] Approved classes:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
-    console.log("[v0] Saved class data:", approvedClass)
+      if (existingIndex >= 0) {
+        inMemoryClasses[existingIndex] = approvedClass
+      } else {
+        inMemoryClasses.push(approvedClass)
+      }
+
+      console.log("[Memory] Class saved successfully. Total inMemoryClasses:", inMemoryClasses.length)
+    }
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(
@@ -733,12 +824,30 @@ export async function saveApprovedClass(classData) {
 
 export async function deleteClassById(id) {
   try {
-    const index = inMemoryClasses.findIndex((cls) => cls.id === id)
-    if (index === -1) {
-      return { success: false, message: "Class not found" }
-    }
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      const result = await sql`
+        DELETE FROM classes WHERE id = ${id}
+      `
+      
+      if (result.count === 0) {
+        return { success: false, message: "Class not found" }
+      }
+      
+      console.log("[Neon] Class deleted successfully from database:", id)
+    } else {
+      // Fallback to in-memory storage
+      const index = inMemoryClasses.findIndex((cls) => cls.id === id)
+      if (index === -1) {
+        return { success: false, message: "Class not found" }
+      }
 
-    inMemoryClasses.splice(index, 1)
+      inMemoryClasses.splice(index, 1)
+      console.log("[Memory] Class deleted successfully from memory:", id)
+    }
 
     revalidatePath("/admin")
     revalidatePath("/")
@@ -750,27 +859,89 @@ export async function deleteClassById(id) {
 }
 
 export async function fetchAllClassesAdmin() {
-  return [...inMemoryClasses]
+  try {
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      const classes = await sql`
+        SELECT 
+          id, title, description, routine, instructor, date, time,
+          duration, intensity, status, maxParticipants, workoutBreakdown,
+          created_at, updated_at
+        FROM classes 
+        ORDER BY date ASC, time ASC
+      `
+      
+      const formattedClasses = classes.map(cls => ({
+        ...cls,
+        routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
+        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
+        numericalIntensity: cls.intensity
+      }))
+      
+      console.log("[Neon] Fetched classes from database:", formattedClasses.length)
+      return formattedClasses
+    } else {
+      // Fallback to in-memory storage
+      console.log("[Memory] Fetched classes from memory:", inMemoryClasses.length)
+      return [...inMemoryClasses]
+    }
+  } catch (error) {
+    console.error("Error fetching classes:", error)
+    return []
+  }
 }
 
 export async function updateClass(classId, updates) {
   try {
-    const classIndex = inMemoryClasses.findIndex((cls) => cls.id === classId)
-    if (classIndex === -1) {
-      return { success: false, message: "Class not found" }
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      const updatedClass = {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }
+      
+      await sql`
+        UPDATE classes SET 
+          title = ${updatedClass.title},
+          description = ${updatedClass.description || ''},
+          routine = ${JSON.stringify(updatedClass.routine)}::jsonb,
+          instructor = ${updatedClass.instructor},
+          date = ${updatedClass.date},
+          time = ${updatedClass.time},
+          duration = ${updatedClass.duration || 60},
+          intensity = ${updatedClass.intensity || 8},
+          status = ${updatedClass.status || 'approved'},
+          maxParticipants = ${updatedClass.maxParticipants || 20},
+          workoutBreakdown = ${JSON.stringify(updatedClass.workoutBreakdown || [])}::jsonb,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${classId}
+      `
+      
+      console.log("[Neon] Class updated successfully in database:", classId)
+      return { success: true, data: updatedClass, message: "Class updated successfully!" }
+    } else {
+      // Fallback to in-memory storage
+      const classIndex = inMemoryClasses.findIndex((cls) => cls.id === classId)
+      if (classIndex === -1) {
+        return { success: false, message: "Class not found" }
+      }
+
+      const updatedClass = {
+        ...inMemoryClasses[classIndex],
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }
+
+      inMemoryClasses[classIndex] = updatedClass
+      console.log("[Memory] Class updated successfully in memory:", classId)
+      return { success: true, data: updatedClass, message: "Class updated successfully!" }
     }
-
-    const updatedClass = {
-      ...inMemoryClasses[classIndex],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    }
-
-    inMemoryClasses[classIndex] = updatedClass
-
-    revalidatePath("/admin")
-    revalidatePath("/")
-    return { success: true, data: updatedClass, message: "Class updated successfully!" }
   } catch (error) {
     console.error("Error updating class:", error)
     return { success: false, message: "Failed to update class" }
@@ -779,8 +950,36 @@ export async function updateClass(classId, updates) {
 
 export async function getClassById(classId) {
   try {
-    const classItem = inMemoryClasses.find((cls) => cls.id === classId)
-    return classItem || null
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      const classes = await sql`
+        SELECT 
+          id, title, description, routine, instructor, date, time,
+          duration, intensity, status, maxParticipants, workoutBreakdown,
+          created_at, updated_at
+        FROM classes 
+        WHERE id = ${classId}
+      `
+      
+      if (classes.length === 0) {
+        return null
+      }
+      
+      const cls = classes[0]
+      return {
+        ...cls,
+        routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
+        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
+        numericalIntensity: cls.intensity
+      }
+    } else {
+      // Fallback to in-memory storage
+      const classItem = inMemoryClasses.find((cls) => cls.id === classId)
+      return classItem || null
+    }
   } catch (error) {
     console.error("Error fetching class:", error)
     return null
@@ -1219,6 +1418,37 @@ export async function fetchAllWorkoutTemplates() {
   // Fallback to existing in-memory implementation
   const { inMemoryWorkoutTemplates } = await import("@/lib/workouts")
   return [...inMemoryWorkoutTemplates]
+}
+
+export async function getWorkoutTemplateById(templateId) {
+  if (USE_NEON_FOR_TEMPLATES) {
+    try {
+      const sql = getNeonSql()
+      
+      const templates = await sql`
+        SELECT id, title, description, rounds, hyrox_prep_types, hyrox_reasoning, other_hyrox_prep_notes
+        FROM workout_templates 
+        WHERE id = ${templateId}
+      `
+      
+      if (templates.length === 0) {
+        return null
+      }
+      
+      const template = templates[0]
+      return {
+        ...template,
+        rounds: typeof template.rounds === 'string' ? JSON.parse(template.rounds) : template.rounds
+      }
+    } catch (error) {
+      console.error("Error fetching workout template by ID:", error)
+      return null
+    }
+  }
+
+  // Fallback to existing in-memory implementation
+  const { inMemoryWorkoutTemplates } = await import("@/lib/workouts")
+  return inMemoryWorkoutTemplates.find(template => template.id === templateId) || null
 }
 
 export async function updateWorkoutTemplate(templateId, updates) {

@@ -66,6 +66,9 @@ export function ClassManagementFull() {
 
   const handleGeneratePreview = async () => {
     try {
+      console.log("🔄 Generating class preview...")
+      console.log("Form data:", scheduleForm)
+      
       const result = await generateClassPreview(
         [scheduleForm.templateKey],
         scheduleForm.date,
@@ -78,11 +81,18 @@ export function ClassManagementFull() {
         editingClass?.id,
       )
 
+      console.log("Preview result:", result)
+
       if (result.success && result.data) {
         setClassPreview(result.data)
+        console.log("✅ Class preview set successfully")
+      } else {
+        console.error("❌ Preview generation failed:", result.message)
+        alert(`Failed to generate preview: ${result.message || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error("Error generating preview:", error)
+      console.error("❌ Error generating preview:", error)
+      alert(`Error generating preview: ${error.message}`)
     }
   }
 
