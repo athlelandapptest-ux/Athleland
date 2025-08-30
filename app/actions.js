@@ -28,6 +28,10 @@ import {
   getCurrentProgramNeon,
   createProgramNeon,
   testNeonConnection,
+  createWorkoutTemplateNeon,
+  fetchAllWorkoutTemplatesNeon,
+  updateWorkoutTemplateNeon,
+  deleteWorkoutTemplateNeon,
 } from "@/lib/neon-actions"
 
 // Action result type
@@ -38,6 +42,7 @@ const USE_NEON_FOR_EVENTS = process.env.USE_NEON_FOR_EVENTS === "true"
 const USE_NEON_FOR_REGISTRATIONS = process.env.USE_NEON_FOR_REGISTRATIONS === "true"
 const USE_NEON_FOR_SPONSORSHIP = process.env.USE_NEON_FOR_SPONSORSHIP === "true"
 const USE_NEON_FOR_PROGRAMS = process.env.USE_NEON_FOR_PROGRAMS === "true"
+const USE_NEON_FOR_TEMPLATES = process.env.USE_NEON_FOR_TEMPLATES === "true"
 
 // Test Neon connection function
 export async function testDatabaseConnection() {
@@ -55,6 +60,7 @@ export async function testDatabaseConnection() {
       registrations: USE_NEON_FOR_REGISTRATIONS,
       sponsorship: USE_NEON_FOR_SPONSORSHIP,
       programs: USE_NEON_FOR_PROGRAMS,
+      templates: USE_NEON_FOR_TEMPLATES,
     }
 
     return {
@@ -747,6 +753,40 @@ export async function fetchAllClassesAdmin() {
   return [...inMemoryClasses]
 }
 
+export async function updateClass(classId, updates) {
+  try {
+    const classIndex = inMemoryClasses.findIndex((cls) => cls.id === classId)
+    if (classIndex === -1) {
+      return { success: false, message: "Class not found" }
+    }
+
+    const updatedClass = {
+      ...inMemoryClasses[classIndex],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    }
+
+    inMemoryClasses[classIndex] = updatedClass
+
+    revalidatePath("/admin")
+    revalidatePath("/")
+    return { success: true, data: updatedClass, message: "Class updated successfully!" }
+  } catch (error) {
+    console.error("Error updating class:", error)
+    return { success: false, message: "Failed to update class" }
+  }
+}
+
+export async function getClassById(classId) {
+  try {
+    const classItem = inMemoryClasses.find((cls) => cls.id === classId)
+    return classItem || null
+  } catch (error) {
+    console.error("Error fetching class:", error)
+    return null
+  }
+}
+
 // Main classes data for the public-facing app
 let classesData = [...sampleClasses]
 
@@ -1146,6 +1186,11 @@ export async function reorderProgramPhases(newPhaseOrderIds) {
 
 // Workout template actions
 export async function createWorkoutTemplate(templateData) {
+  if (USE_NEON_FOR_TEMPLATES) {
+    return await createWorkoutTemplateNeon(templateData)
+  }
+
+  // Fallback to existing in-memory implementation
   try {
     const { inMemoryWorkoutTemplates } = await import("@/lib/workouts")
 
@@ -1167,11 +1212,25 @@ export async function createWorkoutTemplate(templateData) {
 }
 
 export async function fetchAllWorkoutTemplates() {
+  if (USE_NEON_FOR_TEMPLATES) {
+    return await fetchAllWorkoutTemplatesNeon()
+  }
+
+  // Fallback to existing in-memory implementation
   const { inMemoryWorkoutTemplates } = await import("@/lib/workouts")
   return [...inMemoryWorkoutTemplates]
 }
 
 export async function updateWorkoutTemplate(templateId, updates) {
+  if (USE_NEON_FOR_TEMPLATES) {
+    const result = await updateWorkoutTemplateNeon(templateId, updates)
+    if (result.success) {
+      revalidatePath("/admin")
+    }
+    return result
+  }
+
+  // Fallback to existing in-memory implementation
   try {
     const { inMemoryWorkoutTemplates } = await import("@/lib/workouts")
     const templateIndex = inMemoryWorkoutTemplates.findIndex((template) => template.id === templateId)
@@ -1197,6 +1256,15 @@ export async function updateWorkoutTemplate(templateId, updates) {
 }
 
 export async function deleteWorkoutTemplate(templateId) {
+  if (USE_NEON_FOR_TEMPLATES) {
+    const result = await deleteWorkoutTemplateNeon(templateId)
+    if (result.success) {
+      revalidatePath("/admin")
+    }
+    return result
+  }
+
+  // Fallback to existing in-memory implementation
   try {
     const { inMemoryWorkoutTemplates } = await import("@/lib/workouts")
     const templateIndex = inMemoryWorkoutTemplates.findIndex((template) => template.id === templateId)

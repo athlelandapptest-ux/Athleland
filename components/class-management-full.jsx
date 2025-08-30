@@ -8,8 +8,17 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Clock, Users, Zap, Plus, Eye } from "lucide-react"
-import { fetchAllClassesAdmin, getAllRoutineKeys, generateClassPreview, saveApprovedClass } from "@/app/actions"
+import { Calendar, Clock, Users, Zap, Plus, Eye, Edit, Trash2 } from "lucide-react"
+import { 
+  fetchAllClassesAdmin, 
+  getAllRoutineKeys, 
+  generateClassPreview, 
+  saveApprovedClass,
+  updateClass,
+  deleteClassById,
+  getClassById,
+  fetchAllWorkoutTemplates
+} from "@/app/actions"
 import { WorkoutClass } from "@/lib/workouts"
 
 export function ClassManagementFull() {
@@ -18,6 +27,7 @@ export function ClassManagementFull() {
   const [templates, setTemplates] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
+  const [editingClass, setEditingClass] = useState(null)
 
   const [scheduleForm, setScheduleForm] = useState({
     templateKey: "",
@@ -38,7 +48,10 @@ export function ClassManagementFull() {
   const loadData = async () => {
     setIsLoading(true)
     try {
-      const [classesData, templatesData] = await Promise.all([fetchAllClassesAdmin(), getAllRoutineKeys()])
+      const [classesData, templatesData] = await Promise.all([
+        fetchAllClassesAdmin(), 
+        fetchAllWorkoutTemplates()
+      ])
       setClasses(classesData)
       setTemplates(templatesData)
     } catch (error) {
@@ -62,6 +75,7 @@ export function ClassManagementFull() {
         1, // numberOfBlocks
         scheduleForm.maxParticipants,
         scheduleForm.instructor,
+        editingClass?.id,
       )
 
       if (result.success && result.data) {
@@ -76,7 +90,13 @@ export function ClassManagementFull() {
     if (!classPreview) return
 
     try {
-      const result = await saveApprovedClass(classPreview)
+      let result
+      if (editingClass) {
+        result = await updateClass(editingClass.id, classPreview)
+      } else {
+        result = await saveApprovedClass(classPreview)
+      }
+
       if (result.success) {
         await loadData()
         resetForm()
@@ -87,6 +107,39 @@ export function ClassManagementFull() {
       }
     } catch (error) {
       console.error("Error scheduling class:", error)
+    }
+  }
+
+  const handleEditClass = async (classItem) => {
+    setEditingClass(classItem)
+    
+    // Find the template key based on the class routine
+    const matchingTemplate = templates.find(t => t.title === classItem.routine?.title)
+    
+    setScheduleForm({
+      templateKey: matchingTemplate?.id || "",
+      instructor: classItem.instructor,
+      date: classItem.date,
+      time: classItem.time,
+      intensity: classItem.intensity || classItem.numericalIntensity || 8,
+      duration: classItem.duration,
+      maxParticipants: classItem.maxParticipants,
+    })
+    
+    setCurrentStep(1)
+    setActiveTab("schedule")
+  }
+
+  const handleDeleteClass = async (classId) => {
+    if (window.confirm("Are you sure you want to delete this class?")) {
+      try {
+        const result = await deleteClassById(classId)
+        if (result.success) {
+          await loadData()
+        }
+      } catch (error) {
+        console.error("Error deleting class:", error)
+      }
     }
   }
 
@@ -102,6 +155,7 @@ export function ClassManagementFull() {
     })
     setClassPreview(null)
     setCurrentStep(1)
+    setEditingClass(null)
   }
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, 3))
@@ -129,7 +183,7 @@ export function ClassManagementFull() {
             Class Schedule
           </TabsTrigger>
           <TabsTrigger value="schedule" className="data-[state=active]:bg-accent data-[state=active]:text-black">
-            Schedule New
+            {editingClass ? "Edit Class" : "Schedule New"}
           </TabsTrigger>
         </TabsList>
 
@@ -180,6 +234,24 @@ export function ClassManagementFull() {
                               {cls.status}
                             </Badge>
                             <div className="text-white/60 text-sm">{cls.instructor}</div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-white/60 hover:text-white p-2"
+                                onClick={() => handleEditClass(cls)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-500/80 hover:text-red-500 p-2"
+                                onClick={() => handleDeleteClass(cls.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -195,7 +267,9 @@ export function ClassManagementFull() {
           <Card className="glass border-white/10">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-white font-light">Schedule New Class</CardTitle>
+                <CardTitle className="text-white font-light">
+                  {editingClass ? "Edit Class" : "Schedule New Class"}
+                </CardTitle>
                 <div className="flex items-center space-x-2">
                   {[1, 2, 3].map((step) => (
                     <div
@@ -229,7 +303,7 @@ export function ClassManagementFull() {
                       </SelectTrigger>
                       <SelectContent>
                         {templates.map((template) => (
-                          <SelectItem key={template.key} value={template.key}>
+                          <SelectItem key={template.id} value={template.id}>
                             {template.title}
                           </SelectItem>
                         ))}
@@ -468,7 +542,7 @@ export function ClassManagementFull() {
                       className="bg-accent hover:bg-accent/90 text-black"
                       disabled={!classPreview}
                     >
-                      Schedule Class
+                      {editingClass ? "Update Class" : "Schedule Class"}
                     </Button>
                   )}
                 </div>
