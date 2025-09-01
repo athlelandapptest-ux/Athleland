@@ -38,20 +38,20 @@ export function InteractiveCalendar({ classes, programs, onEventClick, onDateSel
 
   // Convert classes and programs to events
   const events = [
-    ...(classes || []).map((cls) => ({
+    ...(Array.isArray(classes) ? classes : []).map((cls) => ({
       id: cls.id,
       title: cls.name,
-      date: cls.date,
-      time: cls.time,
+      date: typeof cls.date === 'string' ? cls.date : '',
+      time: typeof cls.time === 'string' ? cls.time : '',
       type: "class",
       status: cls.status,
       participants: cls.currentParticipants || 0,
       maxParticipants: cls.maxParticipants,
     })),
-    ...(programs || []).map((prog) => ({
+    ...(Array.isArray(programs) ? programs : []).map((prog) => ({
       id: prog.id,
-      title: prog.name,
-      date: prog.startDate,
+      title: typeof prog.name === 'string' ? prog.name : '',
+      date: typeof prog.startDate === 'string' ? prog.startDate : '',
       type: "program",
     })),
   ]

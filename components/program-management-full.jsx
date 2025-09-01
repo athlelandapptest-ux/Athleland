@@ -895,7 +895,10 @@ export function ProgramManagementFull() {
           {/* Calendar Tab - Mobile Optimized */}
           <TabsContent value="calendar" className="space-y-4">
             <div className="w-full overflow-x-auto">
-              <InteractiveCalendar classes={[]} programs={[currentProgram]} />
+              <InteractiveCalendar
+                classes={Array.isArray(currentProgram?.classes) ? currentProgram.classes : []}
+                programs={currentProgram ? [currentProgram] : []}
+              />
             </div>
           </TabsContent>
         </Tabs>
