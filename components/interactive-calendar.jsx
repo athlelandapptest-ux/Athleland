@@ -38,7 +38,7 @@ export function InteractiveCalendar({ classes, programs, onEventClick, onDateSel
 
   // Convert classes and programs to events
   const events = [
-    
+
     ...(Array.isArray(classes) ? classes : []).map((cls) => ({
       id: cls.id,
       title: cls.name,
@@ -203,7 +203,7 @@ export function InteractiveCalendar({ classes, programs, onEventClick, onDateSel
           <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
             <h4 className="text-white font-medium mb-3">Events for {new Date(selectedDate).toLocaleDateString()}</h4>
             <div className="space-y-2">
-              {getEventsForDate(Number.parseInt(selectedDate.split("-")[2])).map((event) => (
+              {getEventsForDate(Number.parseInt((selectedDate || '').split("-")[2] || '0')).map((event) => (
                 <div
                   key={event.id}
                   className="flex items-center justify-between p-3 bg-white/5 rounded border border-white/10"
@@ -236,7 +236,7 @@ export function InteractiveCalendar({ classes, programs, onEventClick, onDateSel
                   )}
                 </div>
               ))}
-              {getEventsForDate(Number.parseInt(selectedDate.split("-")[2])).length === 0 && (
+              {getEventsForDate(Number.parseInt((selectedDate || '').split("-")[2] || '0')).length === 0 && (
                 <div className="text-center py-4 text-white/60">No events scheduled for this date</div>
               )}
             </div>

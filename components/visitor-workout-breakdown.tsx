@@ -68,19 +68,19 @@ export function VisitorWorkoutBreakdown({
           <h2 className="text-white text-2xl font-medium mb-8">Workout Breakdown</h2>
 
           <div className="space-y-8">
-            {rounds.map((round, roundIndex) => (
+            {(rounds || []).map((round, roundIndex) => (
               <div key={roundIndex} className="space-y-4">
                 {/* Block Title */}
                 <h3 className="text-[#FF6B35] text-xl font-medium">
-                  Block {roundIndex + 1} - {round.name.replace(/^Block \d+ - /, "")}
+                  Block {roundIndex + 1} - {(round.name || '').replace(/^Block \d+ - /, "")}
                 </h3>
 
                 {/* Exercises */}
                 <div className="space-y-3 ml-0">
-                  {round.exercises.map((exercise, exerciseIndex) => (
+                  {(round.exercises || []).map((exercise, exerciseIndex) => (
                     <div key={exerciseIndex} className="flex justify-between items-center">
-                      <span className="text-white/90 text-lg">{exercise.name}</span>
-                      <span className="text-white/60 text-lg">{formatDistance(exercise.value, exercise.unit)}</span>
+                      <span className="text-white/90 text-lg">{exercise.name || 'Unknown Exercise'}</span>
+                      <span className="text-white/60 text-lg">{formatDistance(exercise.value || 0, exercise.unit || '')}</span>
                     </div>
                   ))}
                 </div>
