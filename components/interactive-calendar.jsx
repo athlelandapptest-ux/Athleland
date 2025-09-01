@@ -38,6 +38,7 @@ export function InteractiveCalendar({ classes, programs, onEventClick, onDateSel
 
   // Convert classes and programs to events
   const events = [
+    
     ...(Array.isArray(classes) ? classes : []).map((cls) => ({
       id: cls.id,
       title: cls.name,
