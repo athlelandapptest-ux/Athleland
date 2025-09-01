@@ -21,7 +21,7 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
 
   const safeClass = {
     id: cls?.id || "unknown",
-    name: cls?.name || "Untitled Class",
+    name: cls?.title || cls?.name || "Untitled Class",
     description: cls?.description || "No description available",
     date: cls?.date || new Date().toISOString().split("T")[0],
     time: cls?.time || "12:00 PM",

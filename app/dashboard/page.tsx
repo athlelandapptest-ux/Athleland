@@ -1345,13 +1345,13 @@ export default function ClientDashboard() {
                       <div key={cls.id} className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => toggleFavoriteClass(cls.id, cls.name, cls.instructor)}
+                            onClick={() => toggleFavoriteClass(cls.id, cls.title || cls.name || "Untitled Class", cls.instructor)}
                             className="p-2 rounded-lg bg-accent/20 text-accent hover:bg-accent/30 transition-colors"
                           >
                             <Heart className="h-4 w-4 fill-current" />
                           </button>
                           <div>
-                            <h4 className="text-white font-medium text-sm">{cls.name}</h4>
+                            <h4 className="text-white font-medium text-sm">{cls.title || cls.name || "Untitled Class"}</h4>
                             <p className="text-white/60 text-xs">{cls.instructor}</p>
                             <div className="flex items-center gap-3 mt-1">
                               <div className="flex items-center gap-1">

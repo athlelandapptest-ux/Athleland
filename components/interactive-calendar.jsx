@@ -41,7 +41,7 @@ export function InteractiveCalendar({ classes, programs, onEventClick, onDateSel
     
     ...(Array.isArray(classes) ? classes : []).map((cls) => ({
       id: cls.id,
-      title: cls.name,
+      title: cls.title || cls.name || "Untitled Class",
       date: typeof cls.date === 'string' ? cls.date : '',
       time: typeof cls.time === 'string' ? cls.time : '',
       type: "class",

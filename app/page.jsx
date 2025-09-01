@@ -200,7 +200,7 @@ export default function HomePage() {
                 Today's Workout
                 <div className="w-8 h-px bg-accent"></div>
               </div>
-              <h2 className="font-display text-4xl lg:text-5xl font-thin text-white mb-6">{todaysWorkout.name}</h2>
+              <h2 className="font-display text-4xl lg:text-5xl font-thin text-white mb-6">{todaysWorkout.title || todaysWorkout.name || "Today's Workout"}</h2>
               <p className="text-white/60 text-lg max-w-2xl mx-auto font-light">{todaysWorkout.description}</p>
             </div>
 

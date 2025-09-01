@@ -100,23 +100,41 @@ export function ClassManagementFull() {
     if (!classPreview) return
 
     try {
+      // Ensure the class is marked as approved
+      const approvedClassData = {
+        ...classPreview,
+        status: "approved"
+      }
+      
+      console.log("🔄 Scheduling class with status:", approvedClassData.status)
+      console.log("Class data:", approvedClassData)
+
       let result
       if (editingClass) {
-        result = await updateClass(editingClass.id, classPreview)
+        console.log("📝 Updating existing class:", editingClass.id)
+        result = await updateClass(editingClass.id, approvedClassData)
       } else {
-        result = await saveApprovedClass(classPreview)
+        console.log("➕ Creating new class")
+        result = await saveApprovedClass(approvedClassData)
       }
 
+      console.log("Result:", result)
+
       if (result.success) {
+        console.log("✅ Class scheduled successfully")
         await loadData()
         resetForm()
         setActiveTab("overview")
 
         // Dispatch real-time update
         window.dispatchEvent(new CustomEvent("classUpdated"))
+      } else {
+        console.error("❌ Failed to schedule class:", result.message)
+        alert(`Failed to schedule class: ${result.message}`)
       }
     } catch (error) {
-      console.error("Error scheduling class:", error)
+      console.error("❌ Error scheduling class:", error)
+      alert(`Error scheduling class: ${error.message}`)
     }
   }
 
@@ -216,7 +234,7 @@ export function ClassManagementFull() {
                       <CardContent className="p-4">
                         <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                           <div className="flex-1">
-                            <h3 className="text-white font-medium mb-2">{cls.title}</h3>
+                            <h3 className="text-white font-medium mb-2">{cls.title || cls.name}</h3>
                             <div className="flex flex-wrap gap-4 text-sm text-white/70">
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-4 w-4" />
@@ -232,7 +250,7 @@ export function ClassManagementFull() {
                               </div>
                               <div className="flex items-center gap-1">
                                 <Zap className="h-4 w-4" />
-                                {cls.intensity}/15
+                                {cls.intensity || cls.numericalIntensity}/15
                               </div>
                             </div>
                           </div>

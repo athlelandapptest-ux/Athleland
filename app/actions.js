@@ -720,7 +720,7 @@ export async function generateClassPreview(
         key: primaryTemplate.id
       },
       workoutBreakdown,
-      status: "draft",
+      status: editingClassId ? "approved" : "draft", // Keep existing classes approved, new ones start as draft
     }
 
     return { success: true, data: classPreview }

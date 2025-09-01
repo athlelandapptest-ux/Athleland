@@ -113,7 +113,7 @@ export default function ClientDashboardPage() {
                         className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10"
                       >
                         <div>
-                          <h3 className="text-white font-medium">{cls.name}</h3>
+                          <h3 className="text-white font-medium">{cls.title || cls.name || "Untitled Class"}</h3>
                           <p className="text-white/60 text-sm">
                             {cls.time} • {cls.instructor}
                           </p>
@@ -171,7 +171,7 @@ export default function ClientDashboardPage() {
                         className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/10"
                       >
                         <div className="flex-1">
-                          <h3 className="text-white font-medium">{cls.name}</h3>
+                          <h3 className="text-white font-medium">{cls.title || cls.name || "Untitled Class"}</h3>
                           <p className="text-white/60 text-sm">
                             {cls.date} • {cls.time} • {cls.instructor}
                           </p>
