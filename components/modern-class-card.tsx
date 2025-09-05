@@ -19,11 +19,6 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
   const [hasRated, setHasRated] = useState(false)
   const [ratingData, setRatingData] = useState({ average: 4.2, count: 15 })
 
-  // Log class data for debugging
-  console.log("🎯 ModernClassCard: Received cls data:", cls)
-  console.log("🎯 ModernClassCard: cls.id:", cls?.id)
-  console.log("🎯 ModernClassCard: cls.id type:", typeof cls?.id)
-
   const safeClass = {
     id: cls?.id || "unknown",
     name: cls?.title || cls?.name || "Untitled Class",
@@ -300,13 +295,7 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
 
           {/* Training Mode Button */}
           <Link href={`/training-mode/${safeClass.id}`} passHref>
-            <Button 
-              className="w-full bg-accent hover:bg-accent/90 text-black font-medium h-12 rounded-xl group"
-              onClick={() => {
-                console.log("🎯 ModernClassCard: Training mode button clicked for class ID:", safeClass.id)
-                console.log("🎯 ModernClassCard: Full safeClass data:", safeClass)
-              }}
-            >
+            <Button className="w-full bg-accent hover:bg-accent/90 text-black font-medium h-12 rounded-xl group">
               <TvIcon className="h-5 w-5 mr-3 transition-transform group-hover:scale-110" />
               Enter Training Mode
             </Button>

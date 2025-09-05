@@ -753,7 +753,8 @@ export async function saveApprovedClass(classData) {
         // Update existing class
         await sql`
           UPDATE classes SET 
-            title = ${approvedClass.title},
+            title = ${approvedClass.title || approvedClass.name},
+            name = ${approvedClass.name || approvedClass.title},
             description = ${approvedClass.description || ''},
             routine = ${JSON.stringify(approvedClass.routine)}::jsonb,
             instructor = ${approvedClass.instructor},
@@ -762,8 +763,13 @@ export async function saveApprovedClass(classData) {
             duration = ${approvedClass.duration || 60},
             intensity = ${approvedClass.intensity || 8},
             status = ${approvedClass.status},
-            maxParticipants = ${approvedClass.maxParticipants || 20},
-            workoutBreakdown = ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb,
+            max_participants = ${approvedClass.maxParticipants || 20},
+            workout_breakdown = ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb,
+            class_number = ${approvedClass.classNumber || '001'},
+            class_focus = ${approvedClass.classFocus || 'General Fitness'},
+            number_of_blocks = ${approvedClass.numberOfBlocks || 1},
+            difficulty = ${approvedClass.difficulty || 'Intermediate'},
+            numerical_intensity = ${approvedClass.numericalIntensity || approvedClass.intensity || 8},
             updated_at = CURRENT_TIMESTAMP
           WHERE id = ${classData.id}
         `
@@ -771,11 +777,13 @@ export async function saveApprovedClass(classData) {
         // Insert new class
         await sql`
           INSERT INTO classes (
-            id, title, description, routine, instructor, date, time, 
-            duration, intensity, status, maxParticipants, workoutBreakdown
+            id, title, name, description, routine, instructor, date, time, 
+            duration, intensity, status, max_participants, workout_breakdown,
+            class_number, class_focus, number_of_blocks, difficulty, numerical_intensity
           ) VALUES (
             ${approvedClass.id},
-            ${approvedClass.title},
+            ${approvedClass.title || approvedClass.name},
+            ${approvedClass.name || approvedClass.title},
             ${approvedClass.description || ''},
             ${JSON.stringify(approvedClass.routine)}::jsonb,
             ${approvedClass.instructor},
@@ -785,7 +793,12 @@ export async function saveApprovedClass(classData) {
             ${approvedClass.intensity || 8},
             ${approvedClass.status},
             ${approvedClass.maxParticipants || 20},
-            ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb
+            ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb,
+            ${approvedClass.classNumber || '001'},
+            ${approvedClass.classFocus || 'General Fitness'},
+            ${approvedClass.numberOfBlocks || 1},
+            ${approvedClass.difficulty || 'Intermediate'},
+            ${approvedClass.numericalIntensity || approvedClass.intensity || 8}
           )
         `
       }
@@ -888,8 +901,10 @@ export async function fetchAllClassesAdmin() {
       
       const classes = await sql`
         SELECT 
-          id, title, description, routine, instructor, date, time,
-          duration, intensity, status, maxParticipants, workoutBreakdown,
+          id, title, name, description, routine, instructor, date, time,
+          duration, intensity, status, max_participants as maxParticipants, workout_breakdown as workoutBreakdown,
+          class_number as classNumber, class_focus as classFocus, number_of_blocks as numberOfBlocks,
+          difficulty, numerical_intensity as numericalIntensity,
           created_at, updated_at
         FROM classes 
         ORDER BY date ASC, time ASC
@@ -1019,8 +1034,10 @@ export async function fetchAllClasses() {
       
       const classes = await sql`
         SELECT 
-          id, title, description, routine, instructor, date, time,
-          duration, intensity, status, maxParticipants, workoutBreakdown,
+          id, title, name, description, routine, instructor, date, time,
+          duration, intensity, status, max_participants as maxParticipants, workout_breakdown as workoutBreakdown,
+          class_number as classNumber, class_focus as classFocus, number_of_blocks as numberOfBlocks,
+          difficulty, numerical_intensity as numericalIntensity,
           created_at, updated_at
         FROM classes 
         WHERE status = 'approved'
@@ -1034,20 +1051,15 @@ export async function fetchAllClasses() {
         numericalIntensity: cls.intensity
       }))
       
-      console.log("[Neon] Fetched approved classes from database:", formattedClasses.length)
       return formattedClasses
     } else {
       // Fallback to in-memory storage
-      console.log("Fetching classes - inMemoryClasses:", inMemoryClasses.length)
-      console.log("Approved classes:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
       const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
-      console.log("Total classes returned:", allClasses.length)
       return allClasses
     }
   } catch (error) {
     console.error("Error fetching all classes:", error)
     // Fallback to in-memory storage on error
-    console.log("Falling back to in-memory storage")
     const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
     return allClasses
   }
@@ -1055,24 +1067,23 @@ export async function fetchAllClasses() {
 
 export async function fetchClassById(id) {
   try {
-    console.log("[fetchClassById] Looking for class:", id)
     const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
-    console.log("[fetchClassById] USE_NEON_FOR_CLASSES:", useNeon)
     
     if (useNeon) {
-      console.log("[fetchClassById] Using Neon database")
       const sql = getNeonSql()
       
       if (!sql) {
-        console.log("[fetchClassById] Neon SQL not available, falling back to memory")
+        // Fallback to in-memory storage
         const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
         return allClasses.find((cls) => cls.id === id) || null
       }
       
       const classes = await sql`
         SELECT 
-          id, title, description, routine, instructor, date, time,
-          duration, intensity, status, maxParticipants, workoutBreakdown,
+          id, title, name, description, routine, instructor, date, time,
+          duration, intensity, status, max_participants as maxParticipants, workout_breakdown as workoutBreakdown,
+          class_number as classNumber, class_focus as classFocus, number_of_blocks as numberOfBlocks,
+          difficulty, numerical_intensity as numericalIntensity,
           created_at, updated_at
         FROM classes 
         WHERE id = ${id}
@@ -1080,7 +1091,6 @@ export async function fetchClassById(id) {
       `
       
       if (classes.length === 0) {
-        console.log("[fetchClassById] Class not found in Neon database")
         return null
       }
       
@@ -1092,34 +1102,20 @@ export async function fetchClassById(id) {
         numericalIntensity: cls.intensity
       }
       
-      console.log("[fetchClassById] Found class in Neon database:", formattedClass.id)
       return formattedClass
     } else {
       // Fallback to in-memory storage
-      console.log("[fetchClassById] Using in-memory storage")
-      console.log("[fetchClassById] classesData length:", classesData.length)
-      console.log("[fetchClassById] classesData IDs:", classesData.map(cls => cls.id))
-      console.log("[fetchClassById] Total inMemoryClasses:", inMemoryClasses.length)
-      console.log("[fetchClassById] Approved inMemoryClasses:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
-      console.log("[fetchClassById] All inMemoryClasses IDs:", inMemoryClasses.map(cls => cls.id))
-      console.log("[fetchClassById] All inMemoryClasses statuses:", inMemoryClasses.map(cls => cls.status))
-      
       const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
       const foundClass = allClasses.find((cls) => cls.id === id)
-      
-      console.log("[fetchClassById] Total classes available:", allClasses.length)
-      console.log("[fetchClassById] Found class:", foundClass ? foundClass.id : "not found")
       
       return foundClass || null
     }
   } catch (error) {
     console.error("[fetchClassById] Error fetching class by ID:", error)
-    console.log("[fetchClassById] Falling back to in-memory storage due to error")
     
     // Fallback to in-memory storage on any error
     const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
     const foundClass = allClasses.find((cls) => cls.id === id)
-    console.log("[fetchClassById] Fallback result:", foundClass ? foundClass.id : "not found")
     return foundClass || null
   }
 }
