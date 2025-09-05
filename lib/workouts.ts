@@ -468,6 +468,10 @@ export const inMemoryWorkoutTemplates: WorkoutTemplate[] = [
     updatedAt: new Date().toISOString(),
   },
 ]
+// Module instance tracker for debugging
+const moduleInstanceId = `workouts-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+console.log(`🔄 [Workouts Module] Instance loaded: ${moduleInstanceId}`)
+
 export const inMemoryClasses: WorkoutClass[] = [
   {
     id: "class-001",

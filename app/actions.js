@@ -794,22 +794,36 @@ export async function saveApprovedClass(classData) {
     } else {
       // Fallback to in-memory storage
       const existingIndex = inMemoryClasses.findIndex((cls) => cls.id === classData.id)
+      const existingClassesDataIndex = classesData.findIndex((cls) => cls.id === classData.id)
 
       console.log("[Memory] Saving class to memory:", approvedClass.id)
       console.log("[Memory] Class status:", approvedClass.status)
-      console.log("[Memory] Existing index:", existingIndex)
+      console.log("[Memory] Existing index in inMemoryClasses:", existingIndex)
+      console.log("[Memory] Existing index in classesData:", existingClassesDataIndex)
       console.log("[Memory] Before save - inMemoryClasses length:", inMemoryClasses.length)
+      console.log("[Memory] Before save - classesData length:", classesData.length)
 
+      // Save to inMemoryClasses
       if (existingIndex >= 0) {
         inMemoryClasses[existingIndex] = approvedClass
-        console.log("[Memory] Updated existing class at index:", existingIndex)
+        console.log("[Memory] Updated existing class in inMemoryClasses at index:", existingIndex)
       } else {
         inMemoryClasses.push(approvedClass)
-        console.log("[Memory] Added new class")
+        console.log("[Memory] Added new class to inMemoryClasses")
+      }
+
+      // Also save to classesData for persistence across module reloads
+      if (existingClassesDataIndex >= 0) {
+        classesData[existingClassesDataIndex] = approvedClass
+        console.log("[Memory] Updated existing class in classesData at index:", existingClassesDataIndex)
+      } else {
+        classesData.push(approvedClass)
+        console.log("[Memory] Added new class to classesData")
       }
 
       console.log("[Memory] After save - inMemoryClasses length:", inMemoryClasses.length)
-      console.log("[Memory] Class saved successfully. Total inMemoryClasses:", inMemoryClasses.length)
+      console.log("[Memory] After save - classesData length:", classesData.length)
+      console.log("[Memory] Class saved successfully. Total storage locations updated")
     }
 
     if (typeof window !== "undefined") {
@@ -1041,10 +1055,19 @@ export async function fetchAllClasses() {
 
 export async function fetchClassById(id) {
   try {
+    console.log("[fetchClassById] Looking for class:", id)
     const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    console.log("[fetchClassById] USE_NEON_FOR_CLASSES:", useNeon)
     
     if (useNeon) {
+      console.log("[fetchClassById] Using Neon database")
       const sql = getNeonSql()
+      
+      if (!sql) {
+        console.log("[fetchClassById] Neon SQL not available, falling back to memory")
+        const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
+        return allClasses.find((cls) => cls.id === id) || null
+      }
       
       const classes = await sql`
         SELECT 
@@ -1057,6 +1080,7 @@ export async function fetchClassById(id) {
       `
       
       if (classes.length === 0) {
+        console.log("[fetchClassById] Class not found in Neon database")
         return null
       }
       
@@ -1068,27 +1092,35 @@ export async function fetchClassById(id) {
         numericalIntensity: cls.intensity
       }
       
-      console.log("[Neon] Fetched class by ID from database:", formattedClass.id)
+      console.log("[fetchClassById] Found class in Neon database:", formattedClass.id)
       return formattedClass
     } else {
       // Fallback to in-memory storage
-      console.log("[Memory] Looking for class in memory:", id)
-      console.log("[Memory] Total inMemoryClasses:", inMemoryClasses.length)
-      console.log("[Memory] Approved inMemoryClasses:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
-      console.log("[Memory] All inMemoryClasses IDs:", inMemoryClasses.map(cls => cls.id))
-      console.log("[Memory] All inMemoryClasses statuses:", inMemoryClasses.map(cls => cls.status))
+      console.log("[fetchClassById] Using in-memory storage")
+      console.log("[fetchClassById] classesData length:", classesData.length)
+      console.log("[fetchClassById] classesData IDs:", classesData.map(cls => cls.id))
+      console.log("[fetchClassById] Total inMemoryClasses:", inMemoryClasses.length)
+      console.log("[fetchClassById] Approved inMemoryClasses:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
+      console.log("[fetchClassById] All inMemoryClasses IDs:", inMemoryClasses.map(cls => cls.id))
+      console.log("[fetchClassById] All inMemoryClasses statuses:", inMemoryClasses.map(cls => cls.status))
       
       const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
       const foundClass = allClasses.find((cls) => cls.id === id)
       
-      console.log("[Memory] Total classes available:", allClasses.length)
-      console.log("[Memory] Found class:", foundClass ? foundClass.id : "not found")
+      console.log("[fetchClassById] Total classes available:", allClasses.length)
+      console.log("[fetchClassById] Found class:", foundClass ? foundClass.id : "not found")
       
       return foundClass || null
     }
   } catch (error) {
-    console.error("Error fetching class by ID:", error)
-    return null
+    console.error("[fetchClassById] Error fetching class by ID:", error)
+    console.log("[fetchClassById] Falling back to in-memory storage due to error")
+    
+    // Fallback to in-memory storage on any error
+    const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
+    const foundClass = allClasses.find((cls) => cls.id === id)
+    console.log("[fetchClassById] Fallback result:", foundClass ? foundClass.id : "not found")
+    return foundClass || null
   }
 }
 

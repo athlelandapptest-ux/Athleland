@@ -21,16 +21,26 @@ export default function TrainingModePage() {
   useEffect(() => {
     const loadClass = async () => {
       try {
+        console.log("🎯 Training Mode: Loading class with ID:", classId)
+        console.log("🎯 Training Mode: Class ID type:", typeof classId)
+        console.log("🎯 Training Mode: Class ID length:", classId?.length)
+        
         const cls = await fetchClassById(classId)
+        console.log("🎯 Training Mode: fetchClassById returned:", cls)
         setWorkoutClass(cls)
       } catch (error) {
-        console.error("Error loading class:", error)
+        console.error("🎯 Training Mode: Error loading class:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    loadClass()
+    if (classId) {
+      loadClass()
+    } else {
+      console.log("🎯 Training Mode: No classId provided")
+      setLoading(false)
+    }
   }, [classId])
 
   useEffect(() => {
