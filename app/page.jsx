@@ -29,14 +29,16 @@ export default function HomePage() {
 
   const refreshClasses = async () => {
     try {
+      console.log("[v0] Starting refreshClasses...")
       const classesData = await fetchAllClasses()
       console.log("[v0] Refreshed classes:", classesData.length)
-      console.log("[v0] Classes data:", classesData)
+      console.log("[v0] Classes data:", JSON.stringify(classesData, null, 2))
       setClasses(classesData)
 
       const today = new Date().toISOString().split("T")[0]
       const todayClass = classesData.find((cls) => cls.date === today)
       setTodaysWorkout(todayClass || null)
+      console.log("[v0] Today's workout set:", todayClass ? "Found" : "None")
     } catch (error) {
       console.error("Error refreshing classes:", error)
     }
@@ -45,13 +47,14 @@ export default function HomePage() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        console.log("[v0] Starting initial data load...")
         const [classesData, programData, allProgramsData] = await Promise.all([
           fetchAllClasses(), 
           getCurrentProgram(),
           fetchAllPrograms()
         ])
         console.log("[v0] Initial load - classes:", classesData.length)
-        console.log("[v0] Initial classes data:", classesData)
+        console.log("[v0] Initial classes data:", JSON.stringify(classesData, null, 2))
         console.log("[v0] All programs:", allProgramsData.length)
         setClasses(classesData)
         setCurrentProgram(programData)
@@ -60,6 +63,7 @@ export default function HomePage() {
         const today = new Date().toISOString().split("T")[0]
         const todayClass = classesData.find((cls) => cls.date === today)
         setTodaysWorkout(todayClass || null)
+        console.log("[v0] Initial today's workout set:", todayClass ? "Found" : "None")
       } catch (error) {
         console.error("Error loading data:", error)
       } finally {

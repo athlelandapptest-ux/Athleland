@@ -912,9 +912,12 @@ export async function fetchAllClassesAdmin() {
       
       const formattedClasses = classes.map(cls => ({
         ...cls,
+        date: cls.date ? cls.date.toISOString().split('T')[0] : null, // Convert Date to YYYY-MM-DD string
         routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
         workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
-        numericalIntensity: cls.intensity
+        numericalIntensity: cls.intensity,
+        created_at: cls.created_at ? cls.created_at.toISOString() : null,
+        updated_at: cls.updated_at ? cls.updated_at.toISOString() : null
       }))
       
       console.log("[Neon] Fetched classes from database:", formattedClasses.length)
@@ -1026,32 +1029,61 @@ export async function getClassById(classId) {
 let classesData = []
 
 export async function fetchAllClasses() {
+  console.log("🔍 [fetchAllClasses] Function called from client!")
   try {
     const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    console.log("🔍 [fetchAllClasses] USE_NEON_FOR_CLASSES:", useNeon)
     
     if (useNeon) {
+      console.log("🔍 [fetchAllClasses] Using Neon database")
       const sql = getNeonSql()
+      console.log("🔍 [fetchAllClasses] Got SQL instance:", !!sql)
       
-      const classes = await sql`
-        SELECT 
-          id, title, name, description, routine, instructor, date, time,
-          duration, intensity, status, max_participants as maxParticipants, workout_breakdown as workoutBreakdown,
-          class_number as classNumber, class_focus as classFocus, number_of_blocks as numberOfBlocks,
-          difficulty, numerical_intensity as numericalIntensity,
-          created_at, updated_at
-        FROM classes 
-        WHERE status = 'approved'
-        ORDER BY date ASC, time ASC
-      `
-      
-      const formattedClasses = classes.map(cls => ({
-        ...cls,
-        routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
-        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
-        numericalIntensity: cls.intensity
-      }))
-      
-      return formattedClasses
+      try {
+        const classes = await sql`
+          SELECT 
+            id, title, name, description, routine, instructor, date, time,
+            duration, intensity, status, max_participants as maxParticipants, workout_breakdown as workoutBreakdown,
+            class_number as classNumber, class_focus as classFocus, number_of_blocks as numberOfBlocks,
+            difficulty, numerical_intensity as numericalIntensity,
+            created_at, updated_at
+          FROM classes 
+          WHERE status = 'approved'
+          ORDER BY date ASC, time ASC
+        `
+        
+        console.log("🔍 [fetchAllClasses] Classes found:", classes.length)
+        
+        const formattedClasses = classes.map(cls => ({
+          id: cls.id,
+          title: cls.title || cls.name,
+          name: cls.name || cls.title,
+          description: cls.description,
+          routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
+          instructor: cls.instructor,
+          date: cls.date ? cls.date.toISOString().split('T')[0] : null, // Convert Date to YYYY-MM-DD string
+          time: cls.time,
+          duration: cls.duration,
+          intensity: cls.intensity,
+          status: cls.status,
+          maxParticipants: cls.maxparticipants, // Fix camelCase mapping
+          workoutBreakdown: typeof cls.workoutbreakdown === 'string' ? JSON.parse(cls.workoutbreakdown) : cls.workoutbreakdown, // Fix camelCase mapping
+          classNumber: cls.classnumber, // Fix camelCase mapping  
+          classFocus: cls.classfocus, // Fix camelCase mapping
+          numberOfBlocks: cls.numberofblocks, // Fix camelCase mapping
+          difficulty: cls.difficulty,
+          numericalIntensity: cls.numericalintensity || cls.intensity, // Fix camelCase mapping
+          created_at: cls.created_at ? cls.created_at.toISOString() : null,
+          updated_at: cls.updated_at ? cls.updated_at.toISOString() : null
+        }))
+        
+        console.log("🔍 [fetchAllClasses] Returning formatted classes:", formattedClasses.length)
+        console.log("🔍 [fetchAllClasses] Sample class data:", JSON.stringify(formattedClasses[0], null, 2))
+        return formattedClasses
+      } catch (dbError) {
+        console.error("🔍 [fetchAllClasses] Database query error:", dbError)
+        throw dbError
+      }
     } else {
       // Fallback to in-memory storage
       const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
@@ -1066,18 +1098,22 @@ export async function fetchAllClasses() {
 }
 
 export async function fetchClassById(id) {
+  console.log(`🔍 [fetchClassById] Fetching class with ID: ${id}`)
   try {
     const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    console.log(`🔍 [fetchClassById] USE_NEON_FOR_CLASSES: ${useNeon}`)
     
     if (useNeon) {
       const sql = getNeonSql()
       
       if (!sql) {
+        console.log('🔍 [fetchClassById] SQL instance not available, falling back to in-memory')
         // Fallback to in-memory storage
         const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
         return allClasses.find((cls) => cls.id === id) || null
       }
       
+      console.log('🔍 [fetchClassById] Querying database for class')
       const classes = await sql`
         SELECT 
           id, title, name, description, routine, instructor, date, time,
@@ -1091,17 +1127,37 @@ export async function fetchClassById(id) {
       `
       
       if (classes.length === 0) {
+        console.log('🔍 [fetchClassById] No class found in database')
         return null
       }
       
+      console.log('🔍 [fetchClassById] Class found in database')
       const cls = classes[0]
       const formattedClass = {
-        ...cls,
+        id: cls.id,
+        title: cls.title || cls.name,
+        name: cls.name || cls.title,
+        description: cls.description,
         routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
-        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
-        numericalIntensity: cls.intensity
+        instructor: cls.instructor,
+        date: cls.date ? cls.date.toISOString().split('T')[0] : null, // Convert Date to YYYY-MM-DD string
+        time: cls.time,
+        duration: cls.duration,
+        intensity: cls.intensity,
+        status: cls.status,
+        maxParticipants: cls.maxparticipants, // Fix camelCase mapping
+        workoutBreakdown: typeof cls.workoutbreakdown === 'string' ? JSON.parse(cls.workoutbreakdown) : cls.workoutbreakdown, // Fix camelCase mapping
+        classNumber: cls.classnumber, // Fix camelCase mapping  
+        classFocus: cls.classfocus, // Fix camelCase mapping
+        numberOfBlocks: cls.numberofblocks, // Fix camelCase mapping
+        difficulty: cls.difficulty,
+        numericalIntensity: cls.numericalintensity || cls.intensity, // Fix camelCase mapping
+        created_at: cls.created_at ? cls.created_at.toISOString() : null,
+        updated_at: cls.updated_at ? cls.updated_at.toISOString() : null
       }
       
+      console.log(`🔍 [fetchClassById] Returning formatted class with workoutBreakdown length: ${formattedClass.workoutBreakdown?.length || 0}`)
+      console.log(`🔍 [fetchClassById] Sample workoutBreakdown:`, JSON.stringify(formattedClass.workoutBreakdown, null, 2))
       return formattedClass
     } else {
       // Fallback to in-memory storage
