@@ -795,12 +795,20 @@ export async function saveApprovedClass(classData) {
       // Fallback to in-memory storage
       const existingIndex = inMemoryClasses.findIndex((cls) => cls.id === classData.id)
 
+      console.log("[Memory] Saving class to memory:", approvedClass.id)
+      console.log("[Memory] Class status:", approvedClass.status)
+      console.log("[Memory] Existing index:", existingIndex)
+      console.log("[Memory] Before save - inMemoryClasses length:", inMemoryClasses.length)
+
       if (existingIndex >= 0) {
         inMemoryClasses[existingIndex] = approvedClass
+        console.log("[Memory] Updated existing class at index:", existingIndex)
       } else {
         inMemoryClasses.push(approvedClass)
+        console.log("[Memory] Added new class")
       }
 
+      console.log("[Memory] After save - inMemoryClasses length:", inMemoryClasses.length)
       console.log("[Memory] Class saved successfully. Total inMemoryClasses:", inMemoryClasses.length)
     }
 
@@ -989,20 +997,99 @@ export async function getClassById(classId) {
 let classesData = []
 
 export async function fetchAllClasses() {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  console.log("Fetching classes - inMemoryClasses:", inMemoryClasses.length)
-  console.log("Approved classes:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
-  const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
-  console.log("Total classes returned:", allClasses.length)
-  return allClasses
+  try {
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      const classes = await sql`
+        SELECT 
+          id, title, description, routine, instructor, date, time,
+          duration, intensity, status, maxParticipants, workoutBreakdown,
+          created_at, updated_at
+        FROM classes 
+        WHERE status = 'approved'
+        ORDER BY date ASC, time ASC
+      `
+      
+      const formattedClasses = classes.map(cls => ({
+        ...cls,
+        routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
+        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
+        numericalIntensity: cls.intensity
+      }))
+      
+      console.log("[Neon] Fetched approved classes from database:", formattedClasses.length)
+      return formattedClasses
+    } else {
+      // Fallback to in-memory storage
+      console.log("Fetching classes - inMemoryClasses:", inMemoryClasses.length)
+      console.log("Approved classes:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
+      const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
+      console.log("Total classes returned:", allClasses.length)
+      return allClasses
+    }
+  } catch (error) {
+    console.error("Error fetching all classes:", error)
+    // Fallback to in-memory storage on error
+    console.log("Falling back to in-memory storage")
+    const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
+    return allClasses
+  }
 }
 
 export async function fetchClassById(id) {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
-  return allClasses.find((cls) => cls.id === id) || null
+  try {
+    const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
+    
+    if (useNeon) {
+      const sql = getNeonSql()
+      
+      const classes = await sql`
+        SELECT 
+          id, title, description, routine, instructor, date, time,
+          duration, intensity, status, maxParticipants, workoutBreakdown,
+          created_at, updated_at
+        FROM classes 
+        WHERE id = ${id}
+        LIMIT 1
+      `
+      
+      if (classes.length === 0) {
+        return null
+      }
+      
+      const cls = classes[0]
+      const formattedClass = {
+        ...cls,
+        routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
+        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
+        numericalIntensity: cls.intensity
+      }
+      
+      console.log("[Neon] Fetched class by ID from database:", formattedClass.id)
+      return formattedClass
+    } else {
+      // Fallback to in-memory storage
+      console.log("[Memory] Looking for class in memory:", id)
+      console.log("[Memory] Total inMemoryClasses:", inMemoryClasses.length)
+      console.log("[Memory] Approved inMemoryClasses:", inMemoryClasses.filter((cls) => cls.status === "approved").length)
+      console.log("[Memory] All inMemoryClasses IDs:", inMemoryClasses.map(cls => cls.id))
+      console.log("[Memory] All inMemoryClasses statuses:", inMemoryClasses.map(cls => cls.status))
+      
+      const allClasses = [...classesData, ...inMemoryClasses.filter((cls) => cls.status === "approved")]
+      const foundClass = allClasses.find((cls) => cls.id === id)
+      
+      console.log("[Memory] Total classes available:", allClasses.length)
+      console.log("[Memory] Found class:", foundClass ? foundClass.id : "not found")
+      
+      return foundClass || null
+    }
+  } catch (error) {
+    console.error("Error fetching class by ID:", error)
+    return null
+  }
 }
 
 export async function saveClass(workoutClass) {

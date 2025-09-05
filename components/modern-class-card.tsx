@@ -32,6 +32,7 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
     numberOfBlocks: cls?.numberOfBlocks || 1,
     routine: cls?.routine || { rounds: [] },
     routines: cls?.routines || [],
+    workoutBreakdown: cls?.workoutBreakdown || [],
     difficulty: cls?.difficulty || "Intermediate",
     maxParticipants: cls?.maxParticipants || 20,
     instructor: cls?.instructor || "Coach",
@@ -224,18 +225,31 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
         {showDetails && (
           <div className="space-y-4 mb-6 p-4 glass-light rounded-lg border border-white/5 animate-fade-in">
             <h4 className="text-white font-light">Workout Breakdown</h4>
-            {safeClass.routine.rounds?.map((round, roundIdx) => (
+            {/* Try workoutBreakdown first (new structure), then routine.rounds (legacy) */}
+            {(safeClass.workoutBreakdown && safeClass.workoutBreakdown.length > 0 
+              ? safeClass.workoutBreakdown 
+              : safeClass.routine.rounds || []
+            ).map((round: any, roundIdx: number) => (
               <div key={roundIdx} className="space-y-2">
-                <h5 className="text-accent text-sm font-light">{round.name}</h5>
+                <h5 className="text-accent text-sm font-light">{round.title || round.name}</h5>
                 <ul className="space-y-1 text-xs text-white/70">
-                  {round.exercises?.map((exercise, exIdx) => (
-                    <li key={exIdx} className="flex justify-between">
-                      <span>{exercise.name}</span>
-                      <span className="text-white/50">
-                        {exercise.value} {exercise.unit}
-                      </span>
-                    </li>
-                  ))}
+                  {round.exercises?.map((exercise: any, exIdx: number) => {
+                    // Handle different exercise data structures
+                    const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || '';
+                    const displayUnit = exercise.unit || 
+                                      (exercise.reps ? 'reps' : '') ||
+                                      (exercise.duration ? 'seconds' : '') ||
+                                      (exercise.distance ? 'meters' : '') || '';
+                    
+                    return (
+                      <li key={exIdx} className="flex justify-between">
+                        <span>{exercise.name}</span>
+                        <span className="text-white/50">
+                          {displayValue} {displayUnit}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}

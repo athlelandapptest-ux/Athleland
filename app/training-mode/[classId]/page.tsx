@@ -84,7 +84,12 @@ export default function TrainingModePage() {
   const renderCombinedTrainingView = () => {
     if (!workoutClass) return null
 
-    if (!workoutClass.routine || !workoutClass.routine.rounds || workoutClass.routine.rounds.length === 0) {
+    // Handle both new workoutBreakdown structure and legacy routine.rounds structure
+    const workoutData = workoutClass.workoutBreakdown && workoutClass.workoutBreakdown.length > 0 
+      ? workoutClass.workoutBreakdown 
+      : workoutClass.routine?.rounds || [];
+
+    if (workoutData.length === 0) {
       return (
         <div className="min-h-screen bg-black flex items-center justify-center">
           <div className="text-center animate-fade-in">
@@ -98,7 +103,7 @@ export default function TrainingModePage() {
       )
     }
 
-    const blockCount = workoutClass.routine.rounds.length
+    const blockCount = workoutData.length
 
     return (
       <div className={`min-h-screen bg-black text-white ${isFullscreen ? "fixed inset-0 z-50 overflow-auto" : ""}`}>
@@ -111,7 +116,7 @@ export default function TrainingModePage() {
             <div>
               <h1 className="font-display text-xl font-thin text-white">ATHLETELAND CONDITIONING CLUB</h1>
               <p className="text-white/60 text-sm font-light">
-                CLASS #{workoutClass.classNumber || "N/A"} - {workoutClass.name || "Unnamed Class"}
+                CLASS #{workoutClass.classNumber || "N/A"} - {workoutClass.title || workoutClass.name || "Unnamed Class"}
               </p>
             </div>
           </div>
@@ -202,33 +207,42 @@ export default function TrainingModePage() {
             {blockCount === 1 && (
               <div className="glass rounded-2xl p-12 border border-white/10">
                 <h3 className="font-display text-4xl font-thin text-white mb-12 text-center">
-                  {(workoutClass.routine.rounds[0].name || "WORKOUT").toUpperCase()}
+                  {((workoutData[0] as any).title || (workoutData[0] as any).name || "WORKOUT").toUpperCase()}
                 </h3>
                 <div className="space-y-6">
-                  {workoutClass.routine.rounds[0].exercises?.map((exercise, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center text-xl text-white py-6 border-b border-white/10 last:border-b-0"
-                    >
-                      <div className="flex items-center gap-6">
-                        <div className="w-10 h-10 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium">
-                          {index + 1}
+                  {(workoutData[0] as any).exercises?.map((exercise: any, index: number) => {
+                    // Handle different exercise data structures
+                    const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || 0;
+                    const displayUnit = exercise.unit || 
+                                      (exercise.reps ? 'reps' : '') ||
+                                      (exercise.duration ? 'seconds' : '') ||
+                                      (exercise.distance ? 'meters' : '') || 'REPS';
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center text-xl text-white py-6 border-b border-white/10 last:border-b-0"
+                      >
+                        <div className="flex items-center gap-6">
+                          <div className="w-10 h-10 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium">
+                            {index + 1}
+                          </div>
+                          <span className="font-light">{(exercise.name || "Exercise").toUpperCase()}</span>
+                          {exercise.weight && <span className="text-[#FF6B35] font-light">@{exercise.weight}</span>}
                         </div>
-                        <span className="font-light">{(exercise.name || "Exercise").toUpperCase()}</span>
-                        {exercise.weight && <span className="text-[#FF6B35] font-light">@{exercise.weight}</span>}
+                        <span className="font-display text-2xl font-thin text-[#FF6B35]">
+                          {displayValue} {displayUnit.toUpperCase()}
+                        </span>
                       </div>
-                      <span className="font-display text-2xl font-thin text-[#FF6B35]">
-                        {exercise.value || 0} {(exercise.unit || "REPS").toUpperCase()}
-                      </span>
-                    </div>
-                  )) || []}
+                    );
+                  }) || []}
                 </div>
               </div>
             )}
 
             {blockCount === 2 && (
               <div className="grid grid-cols-2 gap-8">
-                {workoutClass.routine.rounds.map((round, blockIndex) => (
+                {(workoutData as any[]).map((round: any, blockIndex: number) => (
                   <div key={blockIndex} className="glass rounded-2xl overflow-hidden border border-white/10">
                     <div className="bg-white/5 p-6 text-center border-b border-white/10">
                       <h3 className="font-display text-2xl font-thin text-white">
@@ -237,31 +251,39 @@ export default function TrainingModePage() {
                       <p className="text-[#FF6B35] font-light text-sm mt-2">{round.rounds || 1} ROUNDS</p>
                     </div>
                     <div className="p-6 space-y-4">
-                      {round.exercises?.map((exercise, exerciseIndex) => (
-                        <div
-                          key={exerciseIndex}
-                          className="flex justify-between items-center glass-light p-4 rounded-xl border border-white/5"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-sm">
-                              {exerciseIndex + 1}
+                      {round.exercises?.map((exercise: any, exerciseIndex: number) => {
+                        const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || 0;
+                        const displayUnit = exercise.unit || 
+                                          (exercise.reps ? 'reps' : '') ||
+                                          (exercise.duration ? 'seconds' : '') ||
+                                          (exercise.distance ? 'meters' : '') || 'REPS';
+                        
+                        return (
+                          <div
+                            key={exerciseIndex}
+                            className="flex justify-between items-center glass-light p-4 rounded-xl border border-white/5"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-sm">
+                                {exerciseIndex + 1}
+                              </div>
+                              <div>
+                                <span className="text-white font-light block">
+                                  {(exercise.name || "Exercise").toUpperCase()}
+                                </span>
+                                {exercise.weight && (
+                                  <span className="text-white/40 text-xs font-light">@{exercise.weight}</span>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-white font-light block">
-                                {(exercise.name || "Exercise").toUpperCase()}
+                            <div className="text-right">
+                              <span className="text-[#FF6B35] font-light text-lg">
+                                {displayValue} {displayUnit.toUpperCase()}
                               </span>
-                              {exercise.weight && (
-                                <span className="text-white/40 text-xs font-light">@{exercise.weight}</span>
-                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[#FF6B35] font-light text-lg">
-                              {exercise.value || 0} {(exercise.unit || "REPS").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      )) || []}
+                        );
+                      }) || []}
                     </div>
                   </div>
                 ))}
@@ -270,7 +292,7 @@ export default function TrainingModePage() {
 
             {blockCount === 3 && (
               <div className="grid grid-cols-3 gap-8">
-                {workoutClass.routine.rounds.map((round, blockIndex) => (
+                {(workoutData as any[]).map((round: any, blockIndex: number) => (
                   <div key={blockIndex} className="glass rounded-2xl overflow-hidden border border-white/10">
                     <div className="bg-white/5 p-6 text-center border-b border-white/10">
                       <h3 className="font-display text-2xl font-thin text-white">
@@ -279,31 +301,39 @@ export default function TrainingModePage() {
                       <p className="text-[#FF6B35] font-light text-sm mt-2">{round.rounds || 1} ROUNDS</p>
                     </div>
                     <div className="p-6 space-y-4">
-                      {round.exercises?.map((exercise, exerciseIndex) => (
-                        <div
-                          key={exerciseIndex}
-                          className="flex justify-between items-center glass-light p-4 rounded-xl border border-white/5"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-sm">
-                              {exerciseIndex + 1}
+                      {round.exercises?.map((exercise: any, exerciseIndex: number) => {
+                        const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || 0;
+                        const displayUnit = exercise.unit || 
+                                          (exercise.reps ? 'reps' : '') ||
+                                          (exercise.duration ? 'seconds' : '') ||
+                                          (exercise.distance ? 'meters' : '') || 'REPS';
+                        
+                        return (
+                          <div
+                            key={exerciseIndex}
+                            className="flex justify-between items-center glass-light p-4 rounded-xl border border-white/5"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-sm">
+                                {exerciseIndex + 1}
+                              </div>
+                              <div>
+                                <span className="text-white font-light block">
+                                  {(exercise.name || "Exercise").toUpperCase()}
+                                </span>
+                                {exercise.weight && (
+                                  <span className="text-white/40 text-xs font-light">@{exercise.weight}</span>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-white font-light block">
-                                {(exercise.name || "Exercise").toUpperCase()}
+                            <div className="text-right">
+                              <span className="text-[#FF6B35] font-light text-lg">
+                                {displayValue} {displayUnit.toUpperCase()}
                               </span>
-                              {exercise.weight && (
-                                <span className="text-white/40 text-xs font-light">@{exercise.weight}</span>
-                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[#FF6B35] font-light text-lg">
-                              {exercise.value || 0} {(exercise.unit || "REPS").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      )) || []}
+                        );
+                      }) || []}
                     </div>
                   </div>
                 ))}
@@ -312,7 +342,7 @@ export default function TrainingModePage() {
 
             {blockCount === 4 && (
               <div className="grid grid-cols-2 gap-8">
-                {workoutClass.routine.rounds.map((round, blockIndex) => (
+                {(workoutData as any[]).map((round: any, blockIndex: number) => (
                   <div key={blockIndex} className="glass rounded-2xl overflow-hidden border border-white/10">
                     <div className="bg-white/5 p-6 text-center border-b border-white/10">
                       <h3 className="font-display text-2xl font-thin text-white">
@@ -321,31 +351,39 @@ export default function TrainingModePage() {
                       <p className="text-[#FF6B35] font-light text-sm mt-2">{round.rounds || 1} ROUNDS</p>
                     </div>
                     <div className="p-6 space-y-4">
-                      {round.exercises?.map((exercise, exerciseIndex) => (
-                        <div
-                          key={exerciseIndex}
-                          className="flex justify-between items-center glass-light p-4 rounded-xl border border-white/5"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-sm">
-                              {exerciseIndex + 1}
+                      {round.exercises?.map((exercise: any, exerciseIndex: number) => {
+                        const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || 0;
+                        const displayUnit = exercise.unit || 
+                                          (exercise.reps ? 'reps' : '') ||
+                                          (exercise.duration ? 'seconds' : '') ||
+                                          (exercise.distance ? 'meters' : '') || 'REPS';
+                        
+                        return (
+                          <div
+                            key={exerciseIndex}
+                            className="flex justify-between items-center glass-light p-4 rounded-xl border border-white/5"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-sm">
+                                {exerciseIndex + 1}
+                              </div>
+                              <div>
+                                <span className="text-white font-light block">
+                                  {(exercise.name || "Exercise").toUpperCase()}
+                                </span>
+                                {exercise.weight && (
+                                  <span className="text-white/40 text-xs font-light">@{exercise.weight}</span>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-white font-light block">
-                                {(exercise.name || "Exercise").toUpperCase()}
+                            <div className="text-right">
+                              <span className="text-[#FF6B35] font-light text-lg">
+                                {displayValue} {displayUnit.toUpperCase()}
                               </span>
-                              {exercise.weight && (
-                                <span className="text-white/40 text-xs font-light">@{exercise.weight}</span>
-                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[#FF6B35] font-light text-lg">
-                              {exercise.value || 0} {(exercise.unit || "REPS").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      )) || []}
+                        );
+                      }) || []}
                     </div>
                   </div>
                 ))}
@@ -354,38 +392,46 @@ export default function TrainingModePage() {
 
             {blockCount > 4 && (
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                {workoutClass.routine.rounds.map((round, blockIndex) => (
+                {(workoutData as any[]).map((round: any, blockIndex: number) => (
                   <div key={blockIndex} className="glass rounded-2xl overflow-hidden border border-white/10">
                     <div className="bg-white/5 p-4 text-center border-b border-white/10">
                       <h3 className="font-display text-xl font-thin text-white">BLOCK {blockIndex + 1}</h3>
                       <p className="text-[#FF6B35] font-light text-sm mt-1">{round.rounds || 1} ROUNDS</p>
                     </div>
                     <div className="p-4 space-y-3">
-                      {round.exercises?.map((exercise, exerciseIndex) => (
-                        <div
-                          key={exerciseIndex}
-                          className="flex justify-between items-center glass-light p-3 rounded-lg border border-white/5"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-xs">
-                              {exerciseIndex + 1}
+                      {round.exercises?.map((exercise: any, exerciseIndex: number) => {
+                        const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || 0;
+                        const displayUnit = exercise.unit || 
+                                          (exercise.reps ? 'reps' : '') ||
+                                          (exercise.duration ? 'seconds' : '') ||
+                                          (exercise.distance ? 'meters' : '') || 'REPS';
+                        
+                        return (
+                          <div
+                            key={exerciseIndex}
+                            className="flex justify-between items-center glass-light p-3 rounded-lg border border-white/5"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 bg-[#FF6B35] text-black rounded-full flex items-center justify-center font-medium text-xs">
+                                {exerciseIndex + 1}
+                              </div>
+                              <div>
+                                <span className="text-white font-light text-sm">
+                                  {(exercise.name || "Exercise").toUpperCase()}
+                                </span>
+                                {exercise.weight && (
+                                  <div className="text-white/40 text-xs font-light">@{exercise.weight}</div>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-white font-light text-sm">
-                                {(exercise.name || "Exercise").toUpperCase()}
+                            <div className="text-right">
+                              <span className="text-[#FF6B35] font-light text-sm">
+                                {displayValue} {displayUnit.toUpperCase()}
                               </span>
-                              {exercise.weight && (
-                                <div className="text-white/40 text-xs font-light">@{exercise.weight}</div>
-                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-[#FF6B35] font-light text-sm">
-                              {exercise.value || 0} {(exercise.unit || "REPS").toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      )) || []}
+                        );
+                      }) || []}
                     </div>
                   </div>
                 ))}
