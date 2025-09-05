@@ -13,6 +13,7 @@ async function testConnection() {
   }
 
   try {
+    
     const result = await sql`SELECT version(), current_database(), current_user`
     console.log("🎯 Database Connection Info:")
     console.log(`   Version: ${result[0].version}`)
