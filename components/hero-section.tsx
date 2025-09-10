@@ -164,8 +164,8 @@ export function HeroSection() {
               {[
                 { number: "500+", label: "Athletes" },
                 { number: "50+", label: "Classes" },
-                { number: "12", label: "Weeks Program" },
-                { number: "15+", label: "Coaches" },
+                { number: "10+", label: "Programs" },
+                { number: "5+", label: "Coaches" },
                 { number: "5★", label: "Rating" },
               ].map((stat, index) => (
                 <div key={index} className="animate-fade-in" style={{ animationDelay: `${1.2 + index * 0.1}s` }}>
