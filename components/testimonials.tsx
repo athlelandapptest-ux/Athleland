@@ -2,22 +2,22 @@ import { Card, CardContent } from "@/components/ui/card"
 
 const testimonials = [
   {
-    name: "Sarah M.",
-    role: "Marketing Executive",
+    name: "Shaikha Al-Tukhaim",
+    role: "",
     content:
-      "Athleland transformed my fitness journey. The structured workouts push me beyond my limits every single session.",
+      "I had an amazing time in this class! It's fun, intense, and keeps you engaged from start to finish. The coach is fantastic – super motivating and really knows how to get everyone involved. The energy is high, and you can tell they genuinely care about helping you improve. Definitely worth a try if you're looking for a great workout experience!",
     rating: 5,
   },
   {
-    name: "Marcus T.",
-    role: "Software Engineer",
-    content: "Finally found a gym that understands intensity. These Hyrox prep sessions are game-changers.",
+    name: "Fahad Aljaser",
+    role: "",
+    content: "Great coach with great classes, uplifting spirit, and awesome music playlist. The classes have a nice mixture of strength and cardio sessions. Highly recommended.",
     rating: 5,
   },
   {
-    name: "Elena R.",
-    role: "Personal Trainer",
-    content: "As a trainer myself, I'm impressed by the detailed programming and progressive intensity scaling.",
+    name: "Reem Al-Taweel",
+    role: "",
+    content: "Great variety of workouts. Explains every movement in detail and focuses a lot on posture and how every movement should be done properly. Always motivating to do more.",
     rating: 5,
   },
 ]

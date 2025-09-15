@@ -234,12 +234,53 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
                 <h5 className="text-accent text-sm font-light">{round.title || round.name}</h5>
                 <ul className="space-y-1 text-xs text-white/70">
                   {round.exercises?.map((exercise: any, exIdx: number) => {
-                    // Handle different exercise data structures
-                    const displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || '';
-                    const displayUnit = exercise.unit || 
-                                      (exercise.reps ? 'reps' : '') ||
-                                      (exercise.duration ? 'seconds' : '') ||
-                                      (exercise.distance ? 'meters' : '') || '';
+                    // Handle different exercise data structures with proper unit mapping
+                    let displayValue = '';
+                    let displayUnit = '';
+                    
+                    if (exercise.unit) {
+                      // If unit is explicitly provided, find the corresponding value
+                      displayUnit = exercise.unit;
+                      
+                      switch (exercise.unit.toLowerCase()) {
+                        case 'reps':
+                          displayValue = exercise.reps || exercise.value || '';
+                          break;
+                        case 'seconds':
+                        case 'sec':
+                          displayValue = exercise.duration || exercise.seconds || exercise.value || '';
+                          break;
+                        case 'meters':
+                        case 'm':
+                          displayValue = exercise.distance || exercise.meters || exercise.value || '';
+                          break;
+                        case 'minutes':
+                        case 'min':
+                          displayValue = exercise.minutes || exercise.duration || exercise.value || '';
+                          break;
+                        case 'kg':
+                        case 'lbs':
+                          displayValue = exercise.weight || exercise.value || '';
+                          break;
+                        default:
+                          displayValue = exercise.value || exercise.reps || exercise.duration || exercise.distance || '';
+                      }
+                    } else {
+                      // Fallback to old logic if no unit is provided
+                      if (exercise.reps) {
+                        displayValue = exercise.reps;
+                        displayUnit = 'reps';
+                      } else if (exercise.duration) {
+                        displayValue = exercise.duration;
+                        displayUnit = 'seconds';
+                      } else if (exercise.distance) {
+                        displayValue = exercise.distance;
+                        displayUnit = 'meters';
+                      } else if (exercise.value) {
+                        displayValue = exercise.value;
+                        displayUnit = '';
+                      }
+                    }
                     
                     return (
                       <li key={exIdx} className="flex justify-between">

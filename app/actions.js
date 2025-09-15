@@ -675,17 +675,61 @@ export async function generateClassPreview(
           if (round.exercises && Array.isArray(round.exercises)) {
             workoutBreakdown.push({
               title: `Round ${index + 1}`,
-              exercises: round.exercises.map(exercise => ({
-                name: exercise.name,
-                reps: exercise.reps,
-                duration: exercise.duration,
-                distance: exercise.distance,
-                weight: exercise.weight,
-                unit: exercise.type === 'reps' ? 'reps' : 
-                      exercise.type === 'time' ? 'seconds' :
-                      exercise.type === 'distance' ? (exercise.unit || 'meters') :
-                      'reps'
-              }))
+              exercises: round.exercises.map(exercise => {
+                // Convert workout template unit format to class format
+                let unit = 'reps' // default fallback
+                let value = exercise.reps || exercise.value || 10 // default value
+                
+                if (exercise.unit) {
+                  switch (exercise.unit.toUpperCase()) {
+                    case 'REPS':
+                      unit = 'reps'
+                      value = exercise.reps || exercise.value || 10
+                      break
+                    case 'SECONDS':
+                      unit = 'seconds'
+                      value = exercise.duration || exercise.value || 30
+                      break
+                    case 'MINUTES':
+                      unit = 'minutes'
+                      value = exercise.duration || exercise.value || 1
+                      break
+                    case 'METERS':
+                    case 'KM':
+                      unit = exercise.unit.toLowerCase()
+                      value = exercise.distance || exercise.value || 100
+                      break
+                    case 'ROUNDS':
+                      unit = 'rounds'
+                      value = exercise.rounds || exercise.value || 1
+                      break
+                    case 'LAPS':
+                      unit = 'laps'
+                      value = exercise.laps || exercise.value || 1
+                      break
+                    default:
+                      unit = exercise.unit.toLowerCase()
+                      value = exercise.reps || exercise.value || 10
+                  }
+                }
+                
+                return {
+                  name: exercise.name,
+                  reps: exercise.reps,
+                  duration: exercise.duration,
+                  distance: exercise.distance,
+                  weight: exercise.weight,
+                  unit: unit,
+                  // Store the appropriate value based on unit type
+                  ...(unit === 'reps' && { reps: value }),
+                  ...(unit === 'seconds' && { duration: value }),
+                  ...(unit === 'minutes' && { duration: value }),
+                  ...(unit === 'meters' && { distance: value }),
+                  ...(unit === 'km' && { distance: value }),
+                  ...(unit === 'rounds' && { rounds: value }),
+                  ...(unit === 'laps' && { laps: value })
+                }
+              })
             })
           }
         })
