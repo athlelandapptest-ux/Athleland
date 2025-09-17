@@ -80,7 +80,6 @@ export function VisitorWorkoutBreakdown({
                   {(round?.exercises || []).map((exercise, exerciseIndex) => (
                     <div key={exerciseIndex} className="flex justify-between items-center">
                       <span className="text-white/90 text-lg">{exercise?.name || 'Unknown Exercise'}</span>
-                      <span className="text-white/60 text-lg">{formatDistance(exercise?.value || 0, exercise?.unit || '')}</span>
                     </div>
                   ))}
                 </div>
