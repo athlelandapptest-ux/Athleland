@@ -48,7 +48,7 @@ export function HeroSection() {
         </div>
 
         <div className="container mx-auto px-6 lg:px-12 pt-32 pb-20">
-          <div className="grid lg:grid-cols-2 gap-16 items-center min-h-[80vh]">
+          <div className="grid lg:grid-cols-2 gap-16 items-center min-h-[80vh] mb-16">
             {/* Left Content */}
             <div className="space-y-12 animate-fade-in">
               {/* Category Label */}
@@ -127,7 +127,7 @@ export function HeroSection() {
                     alt="Elite athlete training with professional equipment"
                     width={600}
                     height={700}
-                    className="rounded-2xl object-cover"
+                    className="rounded-2xl object-cover mb-40 lg:mb-0"
                   />
 
                   {/* Floating Stats Card */}
