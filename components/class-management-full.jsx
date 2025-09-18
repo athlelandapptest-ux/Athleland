@@ -31,6 +31,7 @@ export function ClassManagementFull() {
 
   const [scheduleForm, setScheduleForm] = useState({
     templateKey: "",
+    className: "",
     instructor: "",
     date: "",
     time: "",
@@ -71,6 +72,7 @@ export function ClassManagementFull() {
       
       const result = await generateClassPreview(
         [scheduleForm.templateKey],
+        scheduleForm.className,
         scheduleForm.date,
         scheduleForm.time,
         scheduleForm.intensity,
@@ -146,6 +148,7 @@ export function ClassManagementFull() {
     
     setScheduleForm({
       templateKey: matchingTemplate?.id || "",
+      className: classItem.title || classItem.name || "",
       instructor: classItem.instructor,
       date: classItem.date,
       time: classItem.time,
@@ -321,6 +324,16 @@ export function ClassManagementFull() {
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <div>
+                    <Label className="text-white text-sm">Class Name</Label>
+                    <Input
+                      value={scheduleForm.className}
+                      onChange={(e) => setScheduleForm((prev) => ({ ...prev, className: e.target.value }))}
+                      className="bg-white/5 border-white/20 text-white mt-2"
+                      placeholder="Enter custom class name (e.g., 'Morning HIIT Blast')"
+                    />
+                  </div>
+
+                  <div>
                     <Label className="text-white text-sm">Select Workout Template</Label>
                     <Select
                       value={scheduleForm.templateKey}
@@ -462,6 +475,7 @@ export function ClassManagementFull() {
                         className="bg-accent hover:bg-accent/90 text-black"
                         disabled={
                           !scheduleForm.templateKey ||
+                          !scheduleForm.className ||
                           !scheduleForm.instructor ||
                           !scheduleForm.date ||
                           !scheduleForm.time

@@ -625,6 +625,7 @@ export async function getRoutineByKey(key) {
 // Class management actions
 export async function generateClassPreview(
   templateKeys,
+  className,
   date,
   time,
   intensity,
@@ -659,8 +660,10 @@ export async function generateClassPreview(
     }
 
     const primaryTemplate = templates[0]
-    const className = primaryTemplate.title
     const classDescription = primaryTemplate.description || `High-intensity workout session`
+
+    // Use provided className or fallback to template title
+    const finalClassName = className && className.trim() ? className.trim() : primaryTemplate.title
 
     // Convert template rounds to workout breakdown format
     const workoutBreakdown = []
@@ -748,7 +751,8 @@ export async function generateClassPreview(
     const classPreview = {
       id: editingClassId || `class-${Date.now()}`,
       classNumber: nextClassNumber,
-      title: className,
+      title: finalClassName,
+      name: finalClassName,
       description: classDescription,
       date,
       time,
