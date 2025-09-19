@@ -40,9 +40,9 @@ export function SiteHeader() {
   const navItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/#classes", label: "Classes", icon: Calendar },
-    { href: "/events", label: "Events", icon: CalendarDays },
+    // { href: "/events", label: "Events", icon: CalendarDays },
     { href: "/sponsorship", label: "Sponsorship", icon: Users },
-    { href: "/about", label: "About", icon: Users },
+    // { href: "/about", label: "About", icon: Users },
   ]
 
   const isActive = (href: string) => {
