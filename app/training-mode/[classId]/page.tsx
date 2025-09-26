@@ -118,8 +118,8 @@ export default function TrainingModePage() {
               <ArrowLeft className="h-5 w-5 md:h-6 md:w-6 tv:h-8 tv:w-8 4k:h-12 4k:w-12 tv:stroke-2 4k:stroke-4" />
             </Link>
             <div className="min-w-0 flex-1">
-              <h1 className="font-display text-lg md:text-4xl tv:text-8xl 4k:text-14xl font-bold text-white truncate">ATHLETELAND CONDITIONING CLUB</h1>
-              <p className="text-white/60 text-base md:text-2xl tv:text-5xl 4k:text-8xl font-bold truncate">
+              <h1 className="font-display text-lg md:text-2xl tv:text-4xl 4k:text-8xl font-bold text-white truncate">ATHLETELAND CONDITIONING CLUB</h1>
+              <p className="text-white/60 text-base md:text-lg tv:text-2xl 4k:text-4xl font-bold truncate">
                 CLASS #{workoutClass.classNumber || "N/A"} - {workoutClass.title || workoutClass.name || "Unnamed Class"}
               </p>
             </div>
