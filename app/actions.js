@@ -678,6 +678,7 @@ export async function generateClassPreview(
           if (round.exercises && Array.isArray(round.exercises)) {
             workoutBreakdown.push({
               title: `Round ${index + 1}`,
+              rounds: round.rounds || round.roundsPerBlock || 1, // Preserve rounds information
               exercises: round.exercises.map(exercise => {
                 // Convert workout template unit format to class format
                 let unit = 'reps' // default fallback

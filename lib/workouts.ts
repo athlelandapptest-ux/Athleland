@@ -45,6 +45,7 @@ export interface WorkoutClass {
   status?: "draft" | "approved" | "cancelled"
   workoutBreakdown?: Array<{
     title: string
+    rounds?: number
     exercises: Array<{
       name: string
       reps: number
@@ -509,6 +510,7 @@ export const inMemoryClasses: WorkoutClass[] = [
     workoutBreakdown: [
       {
         title: "Warm-up Circuit",
+        rounds: 1,
         exercises: [
           { name: "Jumping Jacks", reps: 30, unit: "seconds" },
           { name: "High Knees", reps: 20, unit: "reps" }
@@ -516,6 +518,7 @@ export const inMemoryClasses: WorkoutClass[] = [
       },
       {
         title: "HIIT Circuit",
+        rounds: 4,
         exercises: [
           { name: "Burpees", reps: 10, unit: "reps" },
           { name: "Mountain Climbers", reps: 20, unit: "reps" }
@@ -554,6 +557,7 @@ export const inMemoryClasses: WorkoutClass[] = [
     workoutBreakdown: [
       {
         title: "Compound Movements",
+        rounds: 3,
         exercises: [
           { name: "Deadlifts", reps: 5, unit: "reps" },
           { name: "Back Squats", reps: 8, unit: "reps" }
@@ -592,6 +596,7 @@ export const inMemoryClasses: WorkoutClass[] = [
     workoutBreakdown: [
       {
         title: "Gentle Movement",
+        rounds: 2,
         exercises: [
           { name: "Cat-Cow Stretch", reps: 10, unit: "reps" },
           { name: "Hip Circles", reps: 8, unit: "each side" }

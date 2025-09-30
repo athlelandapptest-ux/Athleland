@@ -93,6 +93,9 @@ export default function TrainingModePage() {
       ? workoutClass.workoutBreakdown 
       : workoutClass.routine?.rounds || [];
 
+    console.log('🔍 [TrainingMode] WorkoutClass data:', JSON.stringify(workoutClass, null, 2));
+    console.log('🔍 [TrainingMode] WorkoutData:', JSON.stringify(workoutData, null, 2));
+
     if (workoutData.length === 0) {
       return (
         <div className="min-h-screen bg-black flex items-center justify-center px-4 tv:px-8 4k:px-12">
@@ -210,9 +213,12 @@ export default function TrainingModePage() {
           <div className={`px-4 md:px-8 lg:px-12 tv:px-16 4k:px-24 pb-8 md:pb-12 tv:pb-16 4k:pb-24 w-full max-w-7xl tv:max-w-none 4k:max-w-none ${isFullscreen ? "mt-0" : ""}`}>
             {blockCount === 1 && (
               <div className="glass rounded-2xl p-6 md:p-8 lg:p-12 tv:p-16 4k:p-24 border border-white/10 tv:border-2 tv:border-white/20 4k:border-4 4k:border-white/30">
-                <h3 className="font-display text-4xl md:text-6xl lg:text-8xl tv:text-16xl 4k:text-24xl font-bold text-white mb-8 md:mb-12 tv:mb-16 4k:mb-24 text-center">
+                <h3 className="font-display text-4xl md:text-6xl lg:text-8xl tv:text-16xl 4k:text-24xl font-bold text-white mb-4 md:mb-6 tv:mb-8 4k:mb-12 text-center">
                   {((workoutData[0] as any).title || (workoutData[0] as any).name || "WORKOUT").toUpperCase()}
                 </h3>
+                <p className="text-[#FF6B35] font-bold text-2xl md:text-4xl tv:text-8xl 4k:text-12xl mb-8 md:mb-12 tv:mb-16 4k:mb-24 text-center">
+                  {(workoutData[0] as any).rounds || 1} ROUNDS
+                </p>
                 <div className="space-y-4 md:space-y-6 tv:space-y-8 4k:space-y-12">
                   {(workoutData[0] as any).exercises?.map((exercise: any, index: number) => {
                     // Handle different exercise data structures
