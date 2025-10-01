@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +38,7 @@ import {
 } from "@/app/actions"
 
 export function ProgramManagementFull() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState("overview")
   const [currentProgram, setCurrentProgram] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -251,6 +253,8 @@ export function ProgramManagementFull() {
         setNewProgramPhase({ name: "", weeks: 4, focus: "" })
         // Reload programs after creation
         await loadCurrentProgram()
+        // Force router refresh to update the UI
+        router.refresh()
       } else {
         console.error("Failed to create program:", result.message)
       }
