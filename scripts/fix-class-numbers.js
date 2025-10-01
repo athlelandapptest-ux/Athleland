@@ -2,7 +2,6 @@
 // This will update all classes to have sequential class numbers
 
 import { neon } from '@neondatabase/serverless';
-
 async function fixClassNumbers() {
   try {
     const databaseUrl = process.env.DATABASE_URL;

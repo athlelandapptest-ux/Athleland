@@ -1011,8 +1011,8 @@ export async function updateClass(classId, updates) {
           duration = ${updatedClass.duration || 60},
           intensity = ${updatedClass.intensity || 8},
           status = ${updatedClass.status || 'approved'},
-          maxParticipants = ${updatedClass.maxParticipants || 20},
-          workoutBreakdown = ${JSON.stringify(updatedClass.workoutBreakdown || [])}::jsonb,
+          max_participants = ${updatedClass.maxParticipants || 20},
+          workout_breakdown = ${JSON.stringify(updatedClass.workoutBreakdown || [])}::jsonb,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ${classId}
       `
