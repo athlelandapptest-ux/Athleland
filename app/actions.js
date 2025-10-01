@@ -638,11 +638,17 @@ export async function generateClassPreview(
   try {
     const existingClasses = await fetchAllClassesAdmin()
 
-    let nextClassNumber = 0
+    let nextClassNumber = 1 // Default to 1 if no classes exist
     if (existingClasses.length > 0) {
-      const maxClassNumber = Math.max(...existingClasses.map((cls) => cls.classNumber || 0))
+      // Convert classNumbers to integers, filter out invalid values, and get the max
+      const classNumbers = existingClasses
+        .map((cls) => parseInt(cls.classNumber) || 0)
+        .filter(num => !isNaN(num));
+      
+      const maxClassNumber = classNumbers.length > 0 ? Math.max(...classNumbers) : 0;
+      
       nextClassNumber = editingClassId
-        ? existingClasses.find((cls) => cls.id === editingClassId)?.classNumber || 0
+        ? existingClasses.find((cls) => cls.id === editingClassId)?.classNumber || maxClassNumber + 1
         : maxClassNumber + 1
     }
 
