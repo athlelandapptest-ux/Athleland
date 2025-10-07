@@ -252,7 +252,7 @@ export function ModernClassCard({ cls }: ModernClassCardProps) {
                           break;
                         case 'meters':
                         case 'm':
-                          displayValue = exercise.distance || exercise.meters || exercise.value || '';
+                          displayValue = exercise.value || exercise.reps || exercise.meters || exercise.distance || '';
                           break;
                         case 'minutes':
                         case 'min':
