@@ -637,6 +637,8 @@ export async function generateClassPreview(
 ) {
   try {
     const existingClasses = await fetchAllClassesAdmin()
+    
+    console.log('[generateClassPreview] Total existing classes:', existingClasses.length)
 
     let nextClassNumber = 1 // Default to 1 if no classes exist
     if (existingClasses.length > 0) {
@@ -645,12 +647,18 @@ export async function generateClassPreview(
         .map((cls) => parseInt(cls.classNumber) || 0)
         .filter(num => !isNaN(num));
       
+      console.log('[generateClassPreview] Existing class numbers:', classNumbers)
+      
       const maxClassNumber = classNumbers.length > 0 ? Math.max(...classNumbers) : 0;
+      
+      console.log('[generateClassPreview] Max class number found:', maxClassNumber)
       
       nextClassNumber = editingClassId
         ? existingClasses.find((cls) => cls.id === editingClassId)?.classNumber || maxClassNumber + 1
         : maxClassNumber + 1
     }
+    
+    console.log('[generateClassPreview] Next class number will be:', nextClassNumber)
 
     // Get workout templates instead of routines
     const templates = []
@@ -778,6 +786,8 @@ export async function generateClassPreview(
       status: editingClassId ? "approved" : "draft", // Keep existing classes approved, new ones start as draft
     }
 
+    console.log('[generateClassPreview] Created class preview with classNumber:', classPreview.classNumber)
+
     return { success: true, data: classPreview }
   } catch (error) {
     console.error("Error generating class preview:", error)
@@ -789,12 +799,16 @@ export async function saveApprovedClass(classData) {
   try {
     const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
     
+    console.log('[saveApprovedClass] Incoming classData.classNumber:', classData.classNumber)
+    
     const approvedClass = {
       ...classData,
       status: "approved",
       intensity: classData.intensity,
       numericalIntensity: classData.intensity,
     }
+    
+    console.log('[saveApprovedClass] approvedClass.classNumber:', approvedClass.classNumber)
 
     if (useNeon) {
       const sql = getNeonSql()
@@ -806,6 +820,7 @@ export async function saveApprovedClass(classData) {
       
       if (existingClass.length > 0) {
         // Update existing class
+        console.log('[saveApprovedClass] Updating existing class with classNumber:', approvedClass.classNumber)
         await sql`
           UPDATE classes SET 
             title = ${approvedClass.title || approvedClass.name},
@@ -820,7 +835,7 @@ export async function saveApprovedClass(classData) {
             status = ${approvedClass.status},
             max_participants = ${approvedClass.maxParticipants || 20},
             workout_breakdown = ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb,
-            class_number = ${approvedClass.classNumber || '001'},
+            class_number = ${approvedClass.classNumber || 1},
             class_focus = ${approvedClass.classFocus || 'General Fitness'},
             number_of_blocks = ${approvedClass.numberOfBlocks || 1},
             difficulty = ${approvedClass.difficulty || 'Intermediate'},
@@ -828,8 +843,10 @@ export async function saveApprovedClass(classData) {
             updated_at = CURRENT_TIMESTAMP
           WHERE id = ${classData.id}
         `
+        console.log('[saveApprovedClass] Class updated with class_number:', approvedClass.classNumber || 1)
       } else {
         // Insert new class
+        console.log('[saveApprovedClass] Inserting new class with classNumber:', approvedClass.classNumber)
         await sql`
           INSERT INTO classes (
             id, title, name, description, routine, instructor, date, time, 
@@ -849,13 +866,14 @@ export async function saveApprovedClass(classData) {
             ${approvedClass.status},
             ${approvedClass.maxParticipants || 20},
             ${JSON.stringify(approvedClass.workoutBreakdown || [])}::jsonb,
-            ${approvedClass.classNumber || '001'},
+            ${approvedClass.classNumber || 1},
             ${approvedClass.classFocus || 'General Fitness'},
             ${approvedClass.numberOfBlocks || 1},
             ${approvedClass.difficulty || 'Intermediate'},
             ${approvedClass.numericalIntensity || approvedClass.intensity || 8}
           )
         `
+        console.log('[saveApprovedClass] Class inserted with class_number:', approvedClass.classNumber || 1)
       }
       
       console.log("[Neon] Class saved successfully to database:", approvedClass.id)
@@ -966,16 +984,30 @@ export async function fetchAllClassesAdmin() {
       `
       
       const formattedClasses = classes.map(cls => ({
-        ...cls,
-        date: cls.date ? cls.date.toISOString().split('T')[0] : null, // Convert Date to YYYY-MM-DD string
+        id: cls.id,
+        title: cls.title,
+        name: cls.name,
+        description: cls.description,
+        instructor: cls.instructor,
+        date: cls.date ? cls.date.toISOString().split('T')[0] : null,
+        time: cls.time,
+        duration: cls.duration,
+        intensity: cls.intensity,
+        status: cls.status,
+        maxParticipants: cls.maxparticipants,
+        classNumber: cls.classnumber, // Explicitly map from lowercase
+        classFocus: cls.classfocus,
+        numberOfBlocks: cls.numberofblocks,
+        difficulty: cls.difficulty,
+        numericalIntensity: cls.numericalintensity || cls.intensity,
         routine: typeof cls.routine === 'string' ? JSON.parse(cls.routine) : cls.routine,
-        workoutBreakdown: typeof cls.workoutBreakdown === 'string' ? JSON.parse(cls.workoutBreakdown) : cls.workoutBreakdown,
-        numericalIntensity: cls.intensity,
+        workoutBreakdown: typeof cls.workoutbreakdown === 'string' ? JSON.parse(cls.workoutbreakdown) : cls.workoutbreakdown,
         created_at: cls.created_at ? cls.created_at.toISOString() : null,
         updated_at: cls.updated_at ? cls.updated_at.toISOString() : null
       }))
       
       console.log("[Neon] Fetched classes from database:", formattedClasses.length)
+      console.log("[Neon] Sample class numbers:", formattedClasses.slice(0, 3).map(c => c.classNumber))
       return formattedClasses
     } else {
       // Fallback to in-memory storage
