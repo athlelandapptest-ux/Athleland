@@ -95,6 +95,7 @@ export function HeroSection() {
                   className="border-white/20 text-white hover:bg-white/5 hover:border-white/40 px-8 py-4 h-auto group bg-transparent"
                 >
                   <Play className="h-5 w-5 mr-2 transition-transform group-hover:scale-110" />
+                  onClick={() => window.open("https://www.instagram.com/reel/DOjCl40DU8q/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA%3D%3D", "_blank")} // <-- Add this
                   Watch Demo
                 </Button>
               </div>
