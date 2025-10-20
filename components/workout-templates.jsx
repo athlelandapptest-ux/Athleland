@@ -740,4 +740,5 @@ export function WorkoutTemplates() {
       </Tabs>
     </div>
   )
+  
 }

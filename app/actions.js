@@ -695,58 +695,63 @@ export async function generateClassPreview(
               rounds: round.rounds || round.roundsPerBlock || 1, // Preserve rounds information
               exercises: round.exercises.map(exercise => {
                 // Convert workout template unit format to class format
-                let unit = 'reps' // default fallback
-                let value = exercise.reps || exercise.value || 10 // default value
-                
-                if (exercise.unit) {
-                  switch (exercise.unit.toUpperCase()) {
-                    case 'REPS':
-                      unit = 'reps'
-                      value = exercise.reps || exercise.value || 10
-                      break
-                    case 'SECONDS':
-                      unit = 'seconds'
-                      value = exercise.duration || exercise.value || 30
-                      break
-                    case 'MINUTES':
-                      unit = 'minutes'
-                      value = exercise.duration || exercise.value || 1
-                      break
-                    case 'METERS':
-                    case 'KM':
-                      unit = exercise.unit.toLowerCase()
-                      value = exercise.distance || exercise.value || 100
-                      break
-                    case 'ROUNDS':
-                      unit = 'rounds'
-                      value = exercise.rounds || exercise.value || 1
-                      break
-                    case 'LAPS':
-                      unit = 'laps'
-                      value = exercise.laps || exercise.value || 1
-                      break
-                    default:
-                      unit = exercise.unit.toLowerCase()
-                      value = exercise.reps || exercise.value || 10
-                  }
-                }
-                
-                return {
-                  name: exercise.name,
-                  reps: exercise.reps,
-                  duration: exercise.duration,
-                  distance: exercise.distance,
-                  weight: exercise.weight,
-                  unit: unit,
-                  // Store the appropriate value based on unit type
-                  ...(unit === 'reps' && { reps: value }),
-                  ...(unit === 'seconds' && { duration: value }),
-                  ...(unit === 'minutes' && { duration: value }),
-                  ...(unit === 'meters' && { distance: value }),
-                  ...(unit === 'km' && { distance: value }),
-                  ...(unit === 'rounds' && { rounds: value }),
-                  ...(unit === 'laps' && { laps: value })
-                }
+                // inside exercises.map(exercise => { ... })
+let unit = 'reps'
+let value = exercise.reps ?? exercise.value ?? exercise.duration ?? exercise.distance ?? 0
+
+if (exercise.unit) {
+  switch (exercise.unit.toUpperCase()) {
+    case 'REPS':
+      unit = 'reps'
+      value = Number(exercise.reps ?? exercise.value ?? 0)
+      break
+    case 'SECONDS':
+      unit = 'seconds'
+      value = Number(exercise.duration ?? exercise.value ?? 0)
+      break
+    case 'MINUTES':
+      // normalize to seconds
+      unit = 'seconds'
+      value = Number(exercise.duration ?? exercise.value ?? 0) * 60
+      break
+    case 'METERS':
+      unit = 'meters'
+      value = Number(exercise.distance ?? exercise.value ?? 0)
+      break
+    case 'KM':
+      unit = 'meters'
+      // normalize km to meters
+      value = Number(exercise.distance ?? exercise.value ?? 0) * 1000
+      break
+    case 'ROUNDS':
+      unit = 'rounds'
+      value = Number(exercise.rounds ?? exercise.value ?? 0)
+      break
+    case 'LAPS':
+      unit = 'laps'
+      value = Number(exercise.laps ?? exercise.value ?? 0)
+      break
+    default:
+      unit = exercise.unit.toLowerCase()
+  }
+}
+
+// Build a clean exercise with NO conflicting fields
+const normalized = {
+  name: exercise.name,
+  unit,
+  weight: exercise.weight ?? '',
+}
+
+// Attach only the matching numeric field
+if (unit === 'seconds') normalized.duration = value
+if (unit === 'reps') normalized.reps = value
+if (unit === 'meters') normalized.distance = value
+if (unit === 'rounds') normalized.rounds = value
+if (unit === 'laps') normalized.laps = value
+
+return normalized
+
               })
             })
           }
@@ -1116,6 +1121,8 @@ export async function getClassById(classId) {
 let classesData = []
 
 export async function fetchAllClasses() {
+  console.log("USE_NEON_FOR_CLASSES =", process.env.USE_NEON_FOR_CLASSES);
+
   console.log("🔍 [fetchAllClasses] Function called from client!")
   try {
     const useNeon = process.env.USE_NEON_FOR_CLASSES === 'true'
@@ -1163,7 +1170,8 @@ export async function fetchAllClasses() {
           created_at: cls.created_at ? cls.created_at.toISOString() : null,
           updated_at: cls.updated_at ? cls.updated_at.toISOString() : null
         }))
-        
+        console.log("[Neon] fetched classes:", formattedClasses.length);
+
         console.log("🔍 [fetchAllClasses] Returning formatted classes:", formattedClasses.length)
         console.log("🔍 [fetchAllClasses] Sample class data:", JSON.stringify(formattedClasses[0], null, 2))
         return formattedClasses
