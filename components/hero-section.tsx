@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Play } from "lucide-react"
 
@@ -13,26 +14,11 @@ const features = [
 ]
 
 const heroStripImages = [
-  {
-    src: "/images/excellence/img1 (1).jpeg",
-    alt: "",
-  },
-  {
-    src: "/images/excellence/img1 (2).jpeg",
-    alt: "",
-  },
-  {
-    src: "/images/excellence/img1 (3).jpeg",
-    alt: "",
-  },
-  {
-    src: "/images/excellence/img1 (4).jpeg",
-    alt: "",
-  },
-  {
-    src: "/images/excellence/img1 (5).jpeg",
-    alt: "",
-  },
+  { src: "/images/excellence/img1 (1).jpeg", alt: "" },
+  { src: "/images/excellence/img1 (2).jpeg", alt: "" },
+  { src: "/images/excellence/img1 (3).jpeg", alt: "" },
+  { src: "/images/excellence/img1 (4).jpeg", alt: "" },
+  { src: "/images/excellence/img1 (5).jpeg", alt: "" },
 ]
 
 export function HeroSection() {
@@ -40,14 +26,14 @@ export function HeroSection() {
     <>
       {/* Main Hero Section */}
       <section className="min-h-screen bg-black relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
+        {/* Background Pattern (make it ignore clicks) */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-20 left-20 w-px h-40 bg-white/20"></div>
           <div className="absolute top-40 right-32 w-px h-60 bg-white/20"></div>
           <div className="absolute bottom-40 left-1/4 w-px h-32 bg-white/20"></div>
         </div>
 
-        <div className="container mx-auto px-6 lg:px-12 pt-32 pb-20">
+        <div className="container mx-auto px-6 lg:px-12 pt-32 pb-20 relative z-10">
           <div className="grid lg:grid-cols-2 gap-16 items-center min-h-[80vh] mb-16">
             {/* Left Content */}
             <div className="space-y-12 animate-fade-in">
@@ -82,27 +68,34 @@ export function HeroSection() {
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4">
+                {/* Start Training -> internal route (change /classes if needed) */}
                 <Button
+                  asChild
                   size="lg"
                   className="bg-accent hover:bg-accent/90 text-black font-medium px-8 py-4 h-auto group"
                 >
-                  Start Training
-                  <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />
+                  <Link href="/#classes" className="flex items-center">
+                    Start Training
+                    <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />
+                  </Link>
                 </Button>
+
+                {/* Watch Demo -> external link, guaranteed to open */}
                 <Button
-  size="lg"
-  variant="outline"
-  className="border-white/20 text-white hover:bg-white/5 hover:border-white/40 px-8 py-4 h-auto group bg-transparent"
-  onClick={() =>
-    window.open(
-      "https://www.instagram.com/reel/DOjCl40DU8q/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA%3D%3D",
-      "_blank"
-    )
-  }
->
-  <Play className="h-5 w-5 mr-2 transition-transform group-hover:scale-110" />
-  Watch Demo
-</Button>
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="border-white/20 text-white hover:bg-white/5 hover:border-white/40 px-8 py-4 h-auto group bg-transparent"
+                >
+                  <a
+                    href="https://www.instagram.com/reel/DOjCl40DU8q/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA%3D%3D"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Play className="h-5 w-5 mr-2 transition-transform group-hover:scale-110" />
+                    Watch Demo
+                  </a>
+                </Button>
               </div>
 
               {/* Feature List */}
@@ -134,11 +127,12 @@ export function HeroSection() {
                     width={600}
                     height={700}
                     className="rounded-2xl object-cover mb-40 lg:mb-0"
+                    priority
                   />
 
                   {/* Floating Stats Card */}
                   <div
-                    className="absolute top-8 right-8 glass rounded-xl p-4 text-white animate-fade-in"
+                    className="absolute top-8 right-8 glass rounded-xl p-4 text-white animate-fade-in pointer-events-none"
                     style={{ animationDelay: "1s" }}
                   >
                     <div className="text-3xl font-light text-accent">00:38</div>
@@ -155,16 +149,16 @@ export function HeroSection() {
                   </div>
                 </div>
 
-                {/* Background Elements */}
-                <div className="absolute -top-20 -left-20 w-40 h-40 border border-white/5 rounded-full"></div>
-                <div className="absolute -bottom-16 -right-16 w-32 h-32 border border-white/5 rounded-full"></div>
+                {/* Background Elements (also ignore clicks) */}
+                <div className="absolute -top-20 -left-20 w-40 h-40 border border-white/5 rounded-full pointer-events-none"></div>
+                <div className="absolute -bottom-16 -right-16 w-32 h-32 border border-white/5 rounded-full pointer-events-none"></div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Stats */}
-        <div className="absolute bottom-0 left-0 right-0 glass-light border-t border-white/5">
+        {/* Bottom Stats (ensure it stays behind content) */}
+        <div className="absolute bottom-0 left-0 right-0 glass-light border-t border-white/5 pointer-events-none z-0">
           <div className="container mx-auto px-6 lg:px-12 py-8">
             <div className="grid grid-cols-3 lg:grid-cols-5 gap-8 text-center">
               {[
@@ -185,7 +179,7 @@ export function HeroSection() {
       </section>
 
       {/* Hero Strip Section */}
-      <section className="bg-black/95 py-16 border-t border-white/5">
+      <section className="bg-black/95 py-16 border-t border-white/5 relative z-10">
         <div className="container mx-auto px-6 lg:px-12">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 text-white/40 text-xs font-light tracking-wider uppercase mb-4">
@@ -212,9 +206,6 @@ export function HeroSection() {
                     className="object-cover transition-all duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                    <p className="text-white text-sm font-light">{image.alt}</p>
-                  </div>
                 </div>
               </div>
             ))}
