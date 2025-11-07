@@ -1,51 +1,38 @@
-require('dotenv').config({ path: '.env.local' });
-const { neon } = require('@neondatabase/serverless');
+// scripts/create-classes-table.js
+/* eslint-disable no-console */
+const { Pool } = require("pg");
 
-async function createClassesTable() {
-  try {
-    const sql = neon(process.env.DATABASE_URL);
-    
-    console.log('Creating classes table for production use...');
-    
-    // Drop existing table if it exists and create a new one with the correct structure
-    await sql`DROP TABLE IF EXISTS classes CASCADE`;
-    
-    await sql`
-      CREATE TABLE classes (
-        id VARCHAR(255) PRIMARY KEY,
-        title VARCHAR(255),
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        date DATE NOT NULL,
-        time TIME NOT NULL,
-        duration INTEGER DEFAULT 60,
-        intensity INTEGER DEFAULT 5,
-        numerical_intensity INTEGER DEFAULT 5,
-        class_number VARCHAR(50),
-        class_focus VARCHAR(255),
-        number_of_blocks INTEGER DEFAULT 1,
-        difficulty VARCHAR(50) DEFAULT 'Intermediate',
-        max_participants INTEGER DEFAULT 20,
-        instructor VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'draft',
-        routine JSONB,
-        routines JSONB,
-        workout_breakdown JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-    
-    console.log('✅ Classes table created successfully');
-    
-    // Test the table
-    const result = await sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'classes' ORDER BY ordinal_position`;
-    console.log('📋 Classes table columns:');
-    result.forEach(row => console.log(`  - ${row.column_name}: ${row.data_type}`));
-    
-  } catch (error) {
-    console.error('❌ Failed to create classes table:', error);
+async function main() {
+  if (!process.env.DATABASE_URL) {
+    console.error("DATABASE_URL not set");
+    process.exit(1);
   }
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+  });
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS workout_classes (
+      id BIGSERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      level TEXT,
+      coach TEXT,
+      location TEXT,
+      scheduled_at TIMESTAMPTZ,
+      capacity INT,
+      notes TEXT,
+      template_id BIGINT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  console.log("✅ workout_classes ensured");
+
+  await pool.end();
 }
 
-createClassesTable();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

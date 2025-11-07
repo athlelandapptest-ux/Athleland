@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { createClient, type PostgrestError } from "@supabase/supabase-js"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,12 +10,88 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
-import { Save, X, Plus, Edit, Trash2, User, Mail, Phone, Award, Clock, CheckCircle, XCircle } from "lucide-react"
-import { type Coach, inMemoryCoaches } from "@/lib/coaches"
+import {
+  Save, X, Plus, Edit, Trash2, User, Mail, Phone, Award, Clock, CheckCircle, XCircle, RefreshCw
+} from "lucide-react"
+
+/* =========================
+   Types (align with DB + UI)
+   ========================= */
+export interface Coach {
+  id: string
+  name: string
+  title: string
+  specialties: string[]
+  bio: string
+  image: string
+  experience: string
+  certifications: string[]
+  contact: { email: string; phone?: string }
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+type DbCoach = {
+  id: string
+  name: string
+  title: string
+  specialties: string[] | null
+  bio: string | null
+  image: string | null
+  experience: string | null
+  certifications: string[] | null
+  contact_email: string | null
+  contact_phone: string | null
+  is_active: boolean | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+/* =========================
+   Supabase (browser client)
+   ========================= */
+function getSbBrowser() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string | undefined
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string | undefined
+  if (!url || !key) return null
+  return createClient(url, key, {
+    auth: { persistSession: false, storageKey: "athleland-public" },
+  })
+}
+
+function mapRowToCoach(r: DbCoach): Coach {
+  return {
+    id: r.id,
+    name: r.name,
+    title: r.title,
+    specialties: r.specialties ?? [],
+    bio: r.bio ?? "",
+    image: r.image ?? "/images/head-coach.jpg",
+    experience: r.experience ?? "",
+    certifications: r.certifications ?? [],
+    contact: { email: r.contact_email ?? "", phone: r.contact_phone ?? undefined },
+    isActive: !!r.is_active,
+    createdAt: r.created_at ?? "",
+    updatedAt: r.updated_at ?? "",
+  }
+}
+
+function splitCsv(value: string): string[] {
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
 
 export function CoachManagement() {
+  const sb = useMemo(getSbBrowser, [])
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState<string>("")
+
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [formData, setFormData] = useState({
@@ -28,88 +106,41 @@ export function CoachManagement() {
     isActive: true,
   })
 
-  useEffect(() => {
-    loadCoaches()
-  }, [])
+  const specialtyCount = useMemo(
+    () => new Set(coaches.flatMap((c) => c.specialties || [])).size,
+    [coaches]
+  )
 
-  const loadCoaches = async () => {
+  const loadCoaches = useCallback(async () => {
+    if (!sb) {
+      setIsLoading(false)
+      setError("Supabase is not configured in the browser. Check NEXT_PUBLIC_SUPABASE_URL/ANON_KEY.")
+      return
+    }
     setIsLoading(true)
+    setError("")
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setCoaches(inMemoryCoaches)
-    } catch (error) {
-      console.error("Error loading coaches:", error)
+      const { data, error } = await sb
+        .from("coaches")
+        .select("*")
+        .order("created_at", { ascending: true })
+
+      if (error) throw error
+      setCoaches(((data ?? []) as DbCoach[]).map(mapRowToCoach))
+    } catch (e) {
+      const err = e as PostgrestError
+      setError(err?.message || "Failed to load coaches")
+      setCoaches([])
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [sb])
 
-  const handleSaveCoach = async () => {
-    try {
-      const newCoach: Coach = {
-        id: editingCoach?.id || `coach-${Date.now()}`,
-        name: formData.name,
-        title: formData.title,
-        specialties: formData.specialties.split(",").map((s) => s.trim()),
-        bio: formData.bio,
-        image: "/images/head-coach.jpg",
-        experience: formData.experience,
-        certifications: formData.certifications.split(",").map((s) => s.trim()),
-        contact: {
-          email: formData.email,
-          phone: formData.phone || undefined,
-        },
-        isActive: formData.isActive,
-        createdAt: editingCoach?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+  useEffect(() => {
+    void loadCoaches()
+  }, [loadCoaches])
 
-      if (editingCoach) {
-        // Update existing
-        const index = coaches.findIndex((c) => c.id === editingCoach.id)
-        const updatedCoaches = [...coaches]
-        updatedCoaches[index] = newCoach
-        setCoaches(updatedCoaches)
-      } else {
-        // Add new
-        setCoaches([...coaches, newCoach])
-      }
-
-      resetForm()
-    } catch (error) {
-      console.error("Error saving coach:", error)
-    }
-  }
-
-  const handleEditCoach = (coach: Coach) => {
-    setEditingCoach(coach)
-    setFormData({
-      name: coach.name,
-      title: coach.title,
-      specialties: coach.specialties.join(", "),
-      bio: coach.bio,
-      experience: coach.experience,
-      certifications: coach.certifications.join(", "),
-      email: coach.contact.email,
-      phone: coach.contact.phone || "",
-      isActive: coach.isActive,
-    })
-    
-    setIsCreating(true)
-  }
-
-  const handleDeleteCoach = async (coachId: string) => {
-    if (!confirm("Are you sure you want to delete this coach?")) return
-
-    try {
-      setCoaches(coaches.filter((c) => c.id !== coachId))
-    } catch (error) {
-      console.error("Error deleting coach:", error)
-    }
-  }
-
-  const resetForm = () => {
+  function resetForm() {
     setFormData({
       name: "",
       title: "",
@@ -125,6 +156,79 @@ export function CoachManagement() {
     setIsCreating(false)
   }
 
+  function handleEditCoach(coach: Coach) {
+    setEditingCoach(coach)
+    setFormData({
+      name: coach.name,
+      title: coach.title,
+      specialties: coach.specialties.join(", "),
+      bio: coach.bio,
+      experience: coach.experience,
+      certifications: coach.certifications.join(", "),
+      email: coach.contact.email,
+      phone: coach.contact.phone || "",
+      isActive: coach.isActive,
+    })
+    setIsCreating(true)
+  }
+
+  async function handleSaveCoach() {
+    setSaving(true)
+    setError("")
+
+    const body = {
+      name: formData.name.trim(),
+      title: formData.title.trim(),
+      specialties: splitCsv(formData.specialties),
+      bio: formData.bio.trim(),
+      image: "/images/head-coach.jpg",
+      experience: formData.experience.trim(),
+      certifications: splitCsv(formData.certifications),
+      contact_email: formData.email.trim(),
+      contact_phone: formData.phone.trim() || null,
+      is_active: formData.isActive,
+    }
+
+    try {
+      const res = await fetch(
+        editingCoach ? `/api/coaches/${encodeURIComponent(editingCoach.id)}` : "/api/coaches",
+        {
+          method: editingCoach ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to save coach")
+
+      await loadCoaches()   // refresh list from DB
+      resetForm()
+    } catch (e: any) {
+      console.error("Error saving coach:", e)
+      setError(e.message || "Failed to save coach")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteCoach(coachId: string) {
+    if (!confirm("Are you sure you want to delete this coach?")) return
+    setDeletingId(coachId)
+    setError("")
+    try {
+      const res = await fetch(`/api/coaches/${encodeURIComponent(coachId)}`, { method: "DELETE" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Failed to delete coach")
+
+      await loadCoaches()
+    } catch (e: any) {
+      console.error("Error deleting coach:", e)
+      setError(e.message || "Failed to delete coach")
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 px-4">
@@ -138,23 +242,37 @@ export function CoachManagement() {
 
   return (
     <div className="space-y-4 px-4 sm:px-6 lg:px-8">
-      {/* Mobile-Optimized Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-thin text-white tracking-wide">Coach Management</h2>
           <p className="text-white/60 font-light text-sm sm:text-base">Manage performance coaches and staff</p>
         </div>
-        <Button
-          onClick={() => setIsCreating(true)}
-          className="bg-accent hover:bg-accent/90 text-black w-full sm:w-auto"
-          size="sm"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Coach
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setIsCreating(true)}
+            className="bg-accent hover:bg-accent/90 text-black w-full sm:w-auto"
+            size="sm"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Coach
+          </Button>
+          <Button
+            onClick={() => loadCoaches()}
+            variant="outline"
+            size="sm"
+            className="bg-transparent"
+            title="Refresh list"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {/* Mobile-Optimized Stats */}
+      {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="glass border-white/10">
           <CardContent className="p-4">
@@ -192,7 +310,7 @@ export function CoachManagement() {
               </div>
               <div>
                 <p className="text-white font-medium text-sm">Specialties</p>
-                <p className="text-xl font-thin text-white">{new Set(coaches.flatMap((c) => c.specialties)).size}</p>
+                <p className="text-xl font-thin text-white">{specialtyCount}</p>
               </div>
             </div>
           </CardContent>
@@ -304,13 +422,13 @@ export function CoachManagement() {
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
                 onClick={handleSaveCoach}
-                disabled={!formData.name || !formData.email}
+                disabled={saving || !formData.name || !formData.email}
                 className="bg-green-600 hover:bg-green-700 flex-1"
               >
                 <Save className="h-4 w-4 mr-2" />
                 {editingCoach ? "Update Coach" : "Create Coach"}
               </Button>
-              <Button onClick={resetForm} variant="outline" className="flex-1 bg-transparent">
+              <Button onClick={resetForm} variant="outline" className="flex-1 bg-transparent" disabled={saving}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
@@ -319,7 +437,7 @@ export function CoachManagement() {
         </Card>
       )}
 
-      {/* Mobile-Optimized Coaches List */}
+      {/* List */}
       <Card className="glass border-white/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-white font-light text-lg">Performance Coaches</CardTitle>
@@ -392,6 +510,7 @@ export function CoachManagement() {
                   size="sm"
                   variant="destructive"
                   className="h-8 w-8 p-0"
+                  disabled={deletingId === coach.id}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

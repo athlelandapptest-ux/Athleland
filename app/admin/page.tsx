@@ -14,6 +14,7 @@ import { AdminAuthProvider, useAdminAuth, AdminLoginForm } from "@/components/ad
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
 
+
 function AdminDashboardContent() {
   const [activeTab, setActiveTab] = useState("templates")
   const [activeCategory, setActiveCategory] = useState("content")

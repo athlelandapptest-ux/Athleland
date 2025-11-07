@@ -1,69 +1,38 @@
-// Script to fix class numbers in the database
-// This will update all classes to have sequential class numbers
+// scripts/fix-class-numbers.js
+/* eslint-disable no-console */
+import { Pool } from "pg";
 
-import { neon } from '@neondatabase/serverless';
-async function fixClassNumbers() {
-  try {
-    const databaseUrl = process.env.DATABASE_URL;
-    
-    if (!databaseUrl) {
-      console.error('❌ DATABASE_URL environment variable is not set');
-      process.exit(1);
-    }
+const databaseUrl = process.env.DATABASE_URL;
 
-    const sql = neon(databaseUrl);
-    
-    console.log('🔄 Fetching all classes...');
-    
-    // Get all classes ordered by creation date
-    const classes = await sql`
-      SELECT id, title, name, created_at, class_number
-      FROM classes
-      ORDER BY created_at ASC
-    `;
-    
-    console.log(`📊 Found ${classes.length} classes`);
-    
-    if (classes.length === 0) {
-      console.log('✅ No classes to update');
-      return;
-    }
-    
-    console.log('🔄 Updating class numbers...');
-    
-    // Update each class with sequential numbers
-    for (let i = 0; i < classes.length; i++) {
-      const newClassNumber = i + 1;
-      const classId = classes[i].id;
-      const className = classes[i].title || classes[i].name;
-      
-      await sql`
-        UPDATE classes
-        SET class_number = ${newClassNumber}
-        WHERE id = ${classId}
-      `;
-      
-      console.log(`  ✓ Updated "${className}" to CLASS #${newClassNumber}`);
-    }
-    
-    console.log('✅ Successfully updated all class numbers!');
-    
-    // Verify the update
-    console.log('\n📋 Final class numbers:');
-    const updatedClasses = await sql`
-      SELECT id, title, name, class_number
-      FROM classes
-      ORDER BY class_number ASC
-    `;
-    
-    updatedClasses.forEach(cls => {
-      console.log(`  CLASS #${cls.class_number} - ${cls.title || cls.name}`);
-    });
-    
-  } catch (error) {
-    console.error('❌ Error fixing class numbers:', error);
-    process.exit(1);
-  }
+if (!databaseUrl) {
+  console.error("DATABASE_URL not set");
+  process.exit(1);
 }
 
-fixClassNumbers();
+const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: { rejectUnauthorized: false },
+});
+
+// Tagged template to stay consistent
+async function sql(strings, ...values) {
+  const text = strings.reduce(
+    (acc, s, i) => acc + s + (i < values.length ? `$${i + 1}` : ""),
+    ""
+  );
+  const res = await pool.query(text, values);
+  return res.rows;
+}
+
+async function main() {
+  // example: normalize levels or ensure capacity min
+  await sql`UPDATE workout_classes SET capacity = 10 WHERE capacity IS NULL`;
+  console.log("✅ Fixed null capacities to 10");
+
+  await pool.end();
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

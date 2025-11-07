@@ -1,103 +1,120 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Zap, Target, Heart, TrendingUp, ArrowRight } from "lucide-react"
-import { getCurrentProgram, fetchAllClasses, fetchAllPrograms } from "@/app/actions"
-import { photos } from "@/lib/photos"
-import { SiteHeader } from "@/components/site-header"
-import { ModernClassCard } from "@/components/modern-class-card"
-import { FeatureHighlights } from "@/components/feature-highlights"
-import { PartnerBrands } from "@/components/partner-brands"
-import { Testimonials } from "@/components/testimonials"
-import { CallToAction } from "@/components/call-to-action"
-import { Footer } from "@/components/footer"
-import { HeroSection } from "@/components/hero-section"
-import { ProgramCalendar } from "@/components/program-calendar"
-import { VisitorWorkoutBreakdown } from "@/components/visitor-workout-breakdown"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Zap, Target, Heart, TrendingUp, ArrowRight } from "lucide-react";
+import { photos } from "@/lib/photos";
+import { SiteHeader } from "@/components/site-header";
+import { ModernClassCard } from "@/components/modern-class-card";
+import { FeatureHighlights } from "@/components/feature-highlights";
+import { PartnerBrands } from "@/components/partner-brands";
+import { Testimonials } from "@/components/testimonials";
+import { CallToAction } from "@/components/call-to-action";
+import { Footer } from "@/components/footer";
+import { HeroSection } from "@/components/hero-section";
+import { ProgramCalendar } from "@/components/program-calendar";
+import { VisitorWorkoutBreakdown } from "@/components/visitor-workout-breakdown";
+import ClassCounter from "@/components/ClassCounter";
+import { fetchClassById } from "@/app/fetch-class-by-id";
+import { normalizeWorkoutBreakdown } from "@/lib/normalize";
 
 export default function HomePage() {
-  const [classes, setClasses] = useState([])
-  const [programs, setPrograms] = useState([])
-  const [currentProgram, setCurrentProgram] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedFilter, setSelectedFilter] = useState("all")
-  const [todaysWorkout, setTodaysWorkout] = useState(null)
+  const [classes, setClasses] = useState([]);
+  const [programs, setPrograms] = useState([]);
+  const [currentProgram, setCurrentProgram] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [todaysWorkout, setTodaysWorkout] = useState(null);
+
+  // Unified loader via API (works with Supabase/pg on the server)
+  const fetchAllData = async () => {
+    const res = await fetch("/api/data", { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to fetch /api/data");
+    return res.json();
+  };
 
   const refreshClasses = async () => {
     try {
-      console.log("[v0] Starting refreshClasses...")
-      const classesData = await fetchAllClasses()
-      console.log("[v0] Refreshed classes:", classesData.length)
-      console.log("[v0] Classes data:", JSON.stringify(classesData, null, 2))
-      setClasses(classesData)
+      console.log("[HomePage] refreshClasses...");
+      const json = await fetchAllData();
 
-      const today = new Date().toISOString().split("T")[0]
-      const todayClass = classesData.find((cls) => cls.date === today)
-      setTodaysWorkout(todayClass || null)
-      console.log("[v0] Today's workout set:", todayClass ? "Found" : "None")
+      // 🔧 Normalize workoutBreakdown so distance defaults to 100 when unit is meters
+      const classesDataRaw = json.classes || [];
+      const classesData = classesDataRaw.map((c) => ({
+        ...c,
+        workoutBreakdown: normalizeWorkoutBreakdown(c.workoutBreakdown),
+      }));
+
+      setClasses(classesData);
+
+      const today = new Date().toISOString().split("T")[0];
+      const todayClass = classesData.find((cls) => cls.date === today);
+      setTodaysWorkout(todayClass || null);
     } catch (error) {
-      console.error("Error refreshing classes:", error)
+      console.error("Error refreshing classes:", error);
     }
-  }
+  };
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        console.log("[v0] Starting initial data load...")
-        const [classesData, programData, allProgramsData] = await Promise.all([
-          fetchAllClasses(), 
-          getCurrentProgram(),
-          fetchAllPrograms()
-        ])
-        console.log("[v0] Initial load - classes:", classesData.length)
-        console.log("[v0] Initial classes data:", JSON.stringify(classesData, null, 2))
-        console.log("[v0] All programs:", allProgramsData.length)
-        setClasses(classesData)
-        setCurrentProgram(programData)
-        setPrograms(allProgramsData)
+        console.log("[HomePage] initial data load...");
+        const json = await fetchAllData();
 
-        const today = new Date().toISOString().split("T")[0]
-        const todayClass = classesData.find((cls) => cls.date === today)
-        setTodaysWorkout(todayClass || null)
-        console.log("[v0] Initial today's workout set:", todayClass ? "Found" : "None")
+        // 🔧 Normalize right at load
+        const classesDataRaw = json.classes || [];
+        const classesData = classesDataRaw.map((c) => ({
+          ...c,
+          workoutBreakdown: normalizeWorkoutBreakdown(c.workoutBreakdown),
+        }));
+
+        const programData = json.currentProgram || null;
+        const allProgramsData = json.programs || [];
+
+        setClasses(classesData);
+        setCurrentProgram(programData);
+        setPrograms(allProgramsData);
+
+        const today = new Date().toISOString().split("T")[0];
+        const todayClass = classesData.find((cls) => cls.date === today);
+        setTodaysWorkout(todayClass || null);
       } catch (error) {
-        console.error("Error loading data:", error)
+        console.error("Error loading data:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    loadData()
+    loadData();
 
     const handleAdminUpdate = (event) => {
-      console.log("[v0] Admin update received:", event.detail)
+      console.log("[HomePage] Admin update received:", event.detail);
       if (event.detail.type === "class") {
-        refreshClasses()
+        refreshClasses();
       }
-    }
+    };
 
-    window.addEventListener("adminDataUpdated", handleAdminUpdate)
-
-    const interval = setInterval(refreshClasses, 10000)
+    window.addEventListener("adminDataUpdated", handleAdminUpdate);
+    const interval = setInterval(refreshClasses, 10000);
 
     return () => {
-      clearInterval(interval)
-      window.removeEventListener("adminDataUpdated", handleAdminUpdate)
-    }
-  }, [])
+      clearInterval(interval);
+      window.removeEventListener("adminDataUpdated", handleAdminUpdate);
+    };
+  }, []);
 
   const filteredClasses = classes.filter((cls) => {
-    if (selectedFilter === "all") return true
-    const intensity = cls.intensity || cls.numericalIntensity || 5
-    if (selectedFilter === "beginner") return intensity <= 5
-    if (selectedFilter === "intermediate") return intensity > 5 && intensity <= 10
-    if (selectedFilter === "advanced") return intensity > 10
-    return true
-  })
+    if (selectedFilter === "all") return true;
+    const intensity = cls.intensity || cls.numericalIntensity || 5;
+    if (selectedFilter === "beginner") return intensity <= 5;
+    if (selectedFilter === "intermediate") return intensity > 5 && intensity <= 10;
+    if (selectedFilter === "advanced") return intensity > 10;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -105,6 +122,15 @@ export default function HomePage() {
 
       {/* Hero Section */}
       <HeroSection />
+
+      {/* Membership / Class Counter */}
+      <section className="py-12 bg-black border-t border-white/5">
+        <div className="container mx-auto px-6 lg:px-12">
+          <div className="max-w-3xl mx-auto">
+            <ClassCounter />
+          </div>
+        </div>
+      </section>
 
       {/* Current Program Section */}
       {currentProgram && (
@@ -149,7 +175,9 @@ export default function HomePage() {
                       <p className="text-white/60 font-light text-sm">Current Week</p>
                     </div>
                     <div className="text-center glass-light rounded-xl p-6 border border-white/5">
-                      <div className="font-display text-3xl font-thin text-white mb-2">{currentProgram.totalWeeks}</div>
+                      <div className="font-display text-3xl font-thin text-white mb-2">
+                        {currentProgram.totalWeeks}
+                      </div>
                       <p className="text-white/60 font-light text-sm">Total Weeks</p>
                     </div>
                     <div className="text-center glass-light rounded-xl p-6 border border-white/5">
@@ -182,6 +210,18 @@ export default function HomePage() {
                         ))}
                     </div>
                   )}
+
+                  {/* View Current Program */}
+                  {currentProgram?.id && (
+                    <div className="mt-6">
+                      <Link href={`/programs/${currentProgram.id}`}>
+                        <Button className="bg-accent hover:bg-accent/90 text-black font-medium px-6 py-3 group">
+                          View Current Program
+                          <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -204,7 +244,9 @@ export default function HomePage() {
                 Today's Workout
                 <div className="w-8 h-px bg-accent"></div>
               </div>
-              <h2 className="font-display text-4xl lg:text-5xl font-thin text-white mb-6">{todaysWorkout.title || todaysWorkout.name || "Today's Workout"}</h2>
+              <h2 className="font-display text-4xl lg:text-5xl font-thin text-white mb-6">
+                {todaysWorkout.title || todaysWorkout.name || "Today's Workout"}
+              </h2>
               <p className="text-white/60 text-lg max-w-2xl mx-auto font-light">{todaysWorkout.description}</p>
             </div>
 
@@ -281,9 +323,16 @@ export default function HomePage() {
               <p className="text-white/60 text-lg font-light">No training programs available.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in"
+              style={{ animationDelay: "0.2s" }}
+            >
               {programs.map((program, index) => (
-                <Card key={program.id} className="glass border-white/10 animate-fade-in" style={{ animationDelay: `${0.1 * index}s` }}>
+                <Card
+                  key={program.id}
+                  className="glass border-white/10 animate-fade-in"
+                  style={{ animationDelay: `${0.1 * index}s` }}
+                >
                   <CardHeader>
                     <CardTitle className="font-display text-2xl font-thin text-white mb-3">
                       {program.name}
@@ -293,10 +342,8 @@ export default function HomePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-white/70 text-sm font-light mb-6">
-                      {program.description}
-                    </p>
-                    
+                    <p className="text-white/70 text-sm font-light mb-6">{program.description}</p>
+
                     <div className="grid grid-cols-2 gap-4 mb-6">
                       <div className="text-center glass-light rounded-xl p-4 border border-white/5">
                         <div className="font-display text-2xl font-thin text-accent mb-1">
@@ -312,10 +359,15 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <Button className="w-full bg-accent hover:bg-accent/90 text-black font-medium px-6 py-3 group">
-                      View Program
-                      <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
-                    </Button>
+                    {/* View Program (navigates to /programs/[id]) */}
+                    {program?.id && (
+                      <Link href={`/programs/${program.id}`}>
+                        <Button className="w-full bg-accent hover:bg-accent/90 text-black font-medium px-6 py-3 group">
+                          View Program
+                          <ArrowRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
+                        </Button>
+                      </Link>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -347,7 +399,7 @@ export default function HomePage() {
               { key: "intermediate", label: "Intermediate", icon: TrendingUp },
               { key: "advanced", label: "Advanced", icon: Zap },
             ].map((filter) => {
-              const Icon = filter.icon
+              const Icon = filter.icon;
               return (
                 <Button
                   key={filter.key}
@@ -362,7 +414,7 @@ export default function HomePage() {
                   <Icon className="h-4 w-4 mr-2" />
                   {filter.label}
                 </Button>
-              )
+              );
             })}
             <Button
               onClick={refreshClasses}
@@ -383,10 +435,7 @@ export default function HomePage() {
               <p className="text-white/60 text-lg font-light">No classes found for the selected filter.</p>
             </div>
           ) : (
-            <div
-              className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in"
-              style={{ animationDelay: "0.4s" }}
-            >
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in" style={{ animationDelay: "0.4s" }}>
               {filteredClasses.map((cls, index) => (
                 <div key={cls.id} className="animate-fade-in" style={{ animationDelay: `${0.1 * index}s` }}>
                   <ModernClassCard cls={cls} />
@@ -461,6 +510,5 @@ export default function HomePage() {
         <p className="text-white/30 text-sm font-light">@2025 ATHLETELAND. All Rights Reserved</p>
       </div>
     </div>
-  )
-  
+  );
 }

@@ -1,254 +1,314 @@
-export interface EventSponsor {
-  id: string
-  name: string
-  logo: string
-  website: string
-  tier: "platinum" | "gold" | "silver" | "bronze"
-  isActive: boolean
+// lib/events.ts
+// Supabase-backed Events (works in App/Pages routers; no 'server-only' at module top)
+
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+
+/* ---------------------------- Helpers / Clients ---------------------------- */
+
+type Json = string | number | boolean | null | { [key: string]: Json } | Json[]
+
+function must(v: string | undefined, name: string) {
+  if (!v) throw new Error(`${name} is required.`)
+  return v
 }
 
-export interface EventRegistration {
-  id: string
+/** Public (browser-safe) client — uses NEXT_PUBLIC_* only */
+function getPublic(): SupabaseClient {
+  const url = must(process.env.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL")
+  const anon = must(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, "NEXT_PUBLIC_SUPABASE_ANON_KEY")
+  return createClient(url, anon)
+}
+
+/**
+ * Admin (server-only) client.
+ * - Guarded so it throws if called in the browser.
+ * - Reads env via indexed access so the secret is NOT inlined in client bundles.
+ */
+function getAdmin(): SupabaseClient {
+  if (typeof window !== "undefined") {
+    throw new Error("Admin Supabase client is server-only. Call this from server actions / route handlers.")
+  }
+  const env: any = (process as any)?.env ?? {}
+  const url = must(env.NEXT_PUBLIC_SUPABASE_URL, "NEXT_PUBLIC_SUPABASE_URL")
+  const serviceKey = must(env.SUPABASE_SERVICE_ROLE_KEY, "SUPABASE_SERVICE_ROLE_KEY")
+  return createClient(url, serviceKey, { auth: { persistSession: false } })
+}
+
+/* --------------------------------- API ------------------------------------ */
+
+export async function testNeonConnection() {
+  // Try RPC 'now' (if exists); else ping a trivial select
+  try {
+    const supabase = getPublic()
+    const { error } = await supabase.rpc("now" as any)
+    if (error) {
+      const ping = await supabase.from("events").select("id").limit(1)
+      if (ping.error) return { success: false, message: "Supabase connection failed: " + ping.error.message }
+    }
+    return { success: true, message: "Supabase connection verified" }
+  } catch (e: any) {
+    return { success: false, message: e?.message || "Supabase connection failed" }
+  }
+}
+
+/** CREATE (Admin) */
+export async function createEventNeon(eventData: any) {
+  try {
+    const supabase = getAdmin()
+
+    const eventId = `event-${Date.now()}`
+    const payload = {
+      id: eventId,
+      title: eventData?.title || eventData?.name,
+      description: eventData?.description ?? null,
+      date: eventData?.date, // ISO date (YYYY-MM-DD) or timestamp
+      time_text: eventData?.time ?? null,
+      duration: eventData?.duration ?? null,
+      location: eventData?.location ?? null,
+      max_participants: eventData?.maxParticipants ?? 0,
+      current_participants: eventData?.currentParticipants ?? 0,
+      price: eventData?.price ?? 0,
+      member_discount: eventData?.memberDiscount ?? 0,
+      registration_deadline: eventData?.registrationDeadline ?? null,
+      status: eventData?.status ?? "draft",
+      allow_waitlist: eventData?.allowWaitlist ?? true,
+      image_url: eventData?.imageUrl ?? null,
+      cancellation_policy:
+        (eventData?.cancellationPolicy as Json) ?? {
+          fullRefundHours: 48,
+          partialRefundHours: 24,
+          partialRefundPercentage: 50,
+        },
+    }
+
+    const { data, error } = await supabase.from("events").insert(payload).select("*").single()
+    if (error) throw error
+
+    return {
+      success: true,
+      data: {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        date: data.date,
+        time: data.time_text,
+        duration: data.duration,
+        location: data.location,
+        maxParticipants: data.max_participants,
+        currentParticipants: data.current_participants,
+        price: Number(data.price || 0),
+        memberDiscount: Number(data.member_discount || 0),
+        registrationDeadline: data.registration_deadline,
+        status: data.status,
+        allowWaitlist: data.allow_waitlist,
+        imageUrl: data.image_url,
+        cancellationPolicy: data.cancellation_policy,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      },
+      message: "Event created successfully (Supabase)",
+    }
+  } catch (error: any) {
+    console.error("Error creating event (Supabase):", error)
+    return { success: false, message: error?.message || "Failed to create event" }
+  }
+}
+
+/** READ ALL (Admin list or general) */
+export async function fetchAllEventsNeon() {
+  try {
+    // ok to use admin (server) or public (browser) for reads; prefer public to be safe everywhere
+    const supabase = getPublic()
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .order("date", { ascending: true })
+      .order("time_text", { ascending: true })
+    if (error) throw error
+
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      date: row.date,
+      time: row.time_text,
+      duration: row.duration,
+      location: row.location,
+      maxParticipants: row.max_participants,
+      currentParticipants: row.current_participants,
+      price: Number(row.price || 0),
+      memberDiscount: Number(row.member_discount || 0),
+      registrationDeadline: row.registration_deadline,
+      status: row.status,
+      allowWaitlist: row.allow_waitlist,
+      imageUrl: row.image_url,
+      cancellationPolicy: row.cancellation_policy,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }))
+  } catch (error) {
+    console.error("Error fetching events (Supabase):", error)
+    return []
+  }
+}
+
+/** REGISTER (uses public for reads + admin for insert) */
+export async function registerForEventNeon(reg: {
   eventId: string
   participantName: string
   participantEmail: string
-  participantPhone: string
-  registrationDate: string
-  status: "pending" | "confirmed" | "cancelled" | "waitlisted"
-  paymentStatus: "pending" | "paid" | "refunded"
-  fitnessLevel: "beginner" | "intermediate" | "advanced"
-  medicalNotes?: string
-  emergencyContact: {
-    name: string
-    phone: string
-    relationship: string
+  participantPhone?: string
+  emergencyContact?: string
+  emergencyPhone?: string
+  dietaryRestrictions?: string
+  medicalConditions?: string
+}) {
+  try {
+    const pub = getPublic()
+
+    // 1) Event must be published
+    const { data: events, error: e1 } = await pub
+      .from("events")
+      .select("*")
+      .eq("id", reg.eventId)
+      .eq("status", "published")
+      .limit(1)
+    if (e1) throw e1
+    if (!events?.length) return { success: false, message: "Event not found or not available for registration" }
+
+    const event = events[0]
+
+    // 2) Deadline
+    if (event.registration_deadline && new Date() > new Date(event.registration_deadline)) {
+      return { success: false, message: "Registration deadline has passed" }
+    }
+
+    const admin = getAdmin()
+
+    // 3) Already registered?
+    const { data: existing, error: e2 } = await admin
+      .from("event_registrations")
+      .select("id")
+      .eq("event_id", reg.eventId)
+      .eq("participant_email", reg.participantEmail)
+      .limit(1)
+    if (e2) throw e2
+    if (existing?.length) return { success: false, message: "You are already registered for this event" }
+
+    // 4) Capacity check
+    const { count, error: e3 } = await admin
+      .from("event_registrations")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", reg.eventId)
+      .in("status", ["confirmed", "pending"])
+    if (e3) throw e3
+
+    const current = count ?? 0
+    const isFull = current >= (event.max_participants || 0)
+    const status: "pending" | "waitlisted" | "cancelled" =
+      isFull ? (event.allow_waitlist ? "waitlisted" : "cancelled") : "pending"
+
+    if (isFull && !event.allow_waitlist) {
+      return { success: false, message: "Event is full and waitlist is not available" }
+    }
+
+    // 5) Create registration
+    const registrationId = `reg-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const { data: regRow, error: e4 } = await admin
+      .from("event_registrations")
+      .insert({
+        id: registrationId,
+        event_id: reg.eventId,
+        participant_name: reg.participantName,
+        participant_email: reg.participantEmail,
+        participant_phone: reg.participantPhone ?? null,
+        emergency_contact: reg.emergencyContact ?? null,
+        emergency_phone: reg.emergencyPhone ?? null,
+        dietary_restrictions: reg.dietaryRestrictions ?? null,
+        medical_conditions: reg.medicalConditions ?? null,
+        status,
+      })
+      .select("*")
+      .single()
+    if (e4) throw e4
+
+    // 6) Increment participants only if taking a slot
+    if (status === "pending") {
+      try {
+        const { error: rpcErr } = await admin.rpc("increment_event_participants", { p_event_id: reg.eventId })
+        if (rpcErr) throw rpcErr
+      } catch {
+        await admin
+          .from("events")
+          .update({ current_participants: (event.current_participants || 0) + 1 })
+          .eq("id", reg.eventId)
+      }
+    }
+
+    const message =
+      status === "waitlisted"
+        ? "You've been added to the waitlist. We'll notify you if a spot opens up."
+        : "Registration successful! Check your email for confirmation."
+
+    return {
+      success: true,
+      data: {
+        id: regRow.id,
+        eventId: regRow.event_id,
+        participantName: regRow.participant_name,
+        participantEmail: regRow.participant_email,
+        participantPhone: regRow.participant_phone,
+        emergencyContact: regRow.emergency_contact,
+        emergencyPhone: regRow.emergency_phone,
+        dietaryRestrictions: regRow.dietary_restrictions,
+        medicalConditions: regRow.medical_conditions,
+        status: regRow.status,
+        paymentStatus: regRow.payment_status,
+        registrationDate: regRow.registration_date,
+      },
+      message,
+    }
+  } catch (error: any) {
+    // If this was accidentally invoked from the browser, you'll see the guard message here.
+    console.error("Error registering (Supabase):", error)
+    return { success: false, message: error?.message || "Registration failed. Please try again." }
   }
-  specialRequests?: string
 }
 
-export interface Event {
-  id: string
-  title: string
-  description: string
-  fullDescription: string
-  date: string
-  time: string
-  duration: number
-  location: string
-  category: "workshop" | "competition" | "seminar" | "training"
-  maxParticipants: number
-  currentParticipants: number
-  price: number
-  instructor: string
-  difficulty: "Beginner" | "Intermediate" | "Advanced"
-  image: string
-  gallery: string[]
-  tags: string[]
-  featured: boolean
-  status: "draft" | "published" | "cancelled" | "completed"
-  requirements: string[]
-  whatToBring: string[]
-  isSponsored: boolean
-  sponsor?: EventSponsor
-  registrationDeadline: string
-  createdAt: string
-  updatedAt: string
-  // Registration settings
-  allowWaitlist: boolean
-  memberDiscount: number // percentage discount for members
-  cancellationPolicy: {
-    fullRefundHours: number // hours before event for full refund
-    partialRefundHours: number // hours before event for partial refund
-    partialRefundPercentage: number // percentage refunded
+/** ADMIN: update/delete helpers */
+export async function updateEventNeon(id: string, patch: any) {
+  try {
+    const supabase = getAdmin()
+    const map: Record<string, string> = {
+      time: "time_text",
+      imageUrl: "image_url",
+      memberDiscount: "member_discount",
+      registrationDeadline: "registration_deadline",
+      maxParticipants: "max_participants",
+      currentParticipants: "current_participants",
+      allowWaitlist: "allow_waitlist",
+      cancellationPolicy: "cancellation_policy",
+    }
+    const dbPatch: Record<string, any> = {}
+    Object.keys(patch).forEach((k) => (dbPatch[map[k] || k] = patch[k]))
+    const { error } = await supabase.from("events").update(dbPatch).eq("id", id)
+    if (error) throw error
+    return { success: true }
+  } catch (e: any) {
+    console.error("Error updating event (Supabase):", e)
+    return { success: false, message: e?.message || "Failed to update event" }
   }
 }
 
-// Sample sponsors data
-export const inMemorySponsors: EventSponsor[] = [
-  {
-    id: "sponsor-1",
-    name: "Nike Training",
-    logo: "/placeholder.svg?height=100&width=200",
-    website: "https://nike.com",
-    tier: "platinum",
-    isActive: true,
-  },
-  {
-    id: "sponsor-2",
-    name: "Under Armour",
-    logo: "/placeholder.svg?height=100&width=200",
-    website: "https://underarmour.com",
-    tier: "gold",
-    isActive: true,
-  },
-  {
-    id: "sponsor-3",
-    name: "Reebok CrossFit",
-    logo: "/placeholder.svg?height=100&width=200",
-    website: "https://reebok.com",
-    tier: "silver",
-    isActive: true,
-  },
-  {
-    id: "sponsor-4",
-    name: "Rogue Fitness",
-    logo: "/placeholder.svg?height=100&width=200",
-    website: "https://roguefitness.com",
-    tier: "bronze",
-    isActive: true,
-  },
-]
-
-// In-memory storage for registrations
-export const inMemoryRegistrations: EventRegistration[] = []
-
-// Sample events data with registration settings
-export const inMemoryEvents: Event[] = [
-  {
-    id: "event-1",
-    title: "HYROX Competition Prep Workshop",
-    description: "Master the 8 stations of HYROX with expert coaching and personalized strategy sessions.",
-    fullDescription:
-      "Join us for an intensive HYROX preparation workshop designed to elevate your competition performance. This comprehensive session covers all 8 HYROX stations with detailed technique breakdowns, pacing strategies, and personalized coaching feedback. Whether you're preparing for your first HYROX or looking to improve your time, this workshop provides the tools and knowledge you need to succeed.",
-    date: "2025-02-15",
-    time: "09:00",
-    duration: 180,
-    location: "ATHLELAND Main Facility",
-    category: "workshop",
-    maxParticipants: 16,
-    currentParticipants: 12,
-    price: 85,
-    instructor: "Coach Sarah Miller",
-    difficulty: "Intermediate",
-    image: "/placeholder.svg?height=400&width=600",
-    gallery: [
-      "/placeholder.svg?height=300&width=400",
-      "/placeholder.svg?height=300&width=400",
-      "/placeholder.svg?height=300&width=400",
-    ],
-    tags: ["HYROX", "Competition", "Strategy", "Technique"],
-    featured: true,
-    status: "published",
-    requirements: ["Basic fitness level required", "Previous gym experience recommended", "Comfortable athletic wear"],
-    whatToBring: ["Water bottle", "Towel", "Athletic shoes", "Notebook for strategy notes"],
-    isSponsored: true,
-    sponsor: inMemorySponsors[0],
-    registrationDeadline: "2025-02-13",
-    createdAt: "2025-01-15T10:00:00Z",
-    updatedAt: "2025-01-20T14:30:00Z",
-    allowWaitlist: true,
-    memberDiscount: 15,
-    cancellationPolicy: {
-      fullRefundHours: 48,
-      partialRefundHours: 24,
-      partialRefundPercentage: 50,
-    },
-  },
-  {
-    id: "event-2",
-    title: "Functional Movement Seminar",
-    description: "Learn the fundamentals of functional movement patterns for injury prevention and performance.",
-    fullDescription:
-      "This educational seminar focuses on the seven fundamental movement patterns that form the foundation of all athletic performance. Led by certified movement specialists, you'll learn proper biomechanics, common movement dysfunctions, and corrective strategies to optimize your training and reduce injury risk.",
-    date: "2025-02-22",
-    time: "14:00",
-    duration: 120,
-    location: "ATHLELAND Education Center",
-    category: "seminar",
-    maxParticipants: 25,
-    currentParticipants: 8,
-    price: 45,
-    instructor: "Dr. Mike Johnson",
-    difficulty: "Beginner",
-    image: "/placeholder.svg?height=400&width=600",
-    gallery: [],
-    tags: ["Movement", "Education", "Injury Prevention", "Biomechanics"],
-    featured: false,
-    status: "published",
-    requirements: ["No prior experience necessary", "Interest in movement quality"],
-    whatToBring: ["Comfortable clothing for movement", "Notebook", "Open mind"],
-    isSponsored: true,
-    sponsor: inMemorySponsors[1],
-    registrationDeadline: "2025-02-20",
-    createdAt: "2025-01-18T09:00:00Z",
-    updatedAt: "2025-01-18T09:00:00Z",
-    allowWaitlist: true,
-    memberDiscount: 20,
-    cancellationPolicy: {
-      fullRefundHours: 24,
-      partialRefundHours: 12,
-      partialRefundPercentage: 75,
-    },
-  },
-  {
-    id: "event-3",
-    title: "Monthly Fitness Challenge",
-    description: "Test your limits in our monthly fitness competition with prizes and community recognition.",
-    fullDescription:
-      "Join our monthly fitness challenge featuring a unique workout designed to test different aspects of your fitness. This month's challenge combines strength, endurance, and skill-based movements in a fun, competitive format. All fitness levels welcome with scaled options available.",
-    date: "2025-03-01",
-    time: "10:00",
-    duration: 90,
-    location: "ATHLELAND Competition Floor",
-    category: "competition",
-    maxParticipants: 30,
-    currentParticipants: 18,
-    price: 25,
-    instructor: "Coach Team",
-    difficulty: "Intermediate",
-    image: "/placeholder.svg?height=400&width=600",
-    gallery: [],
-    tags: ["Competition", "Community", "Challenge", "Prizes"],
-    featured: true,
-    status: "published",
-    requirements: ["Basic fitness level", "Ability to perform scaled movements", "Competitive spirit"],
-    whatToBring: ["Water bottle", "Towel", "Athletic gear", "Positive attitude"],
-    isSponsored: false,
-    registrationDeadline: "2025-02-27",
-    createdAt: "2025-01-20T11:00:00Z",
-    updatedAt: "2025-01-25T16:00:00Z",
-    allowWaitlist: false,
-    memberDiscount: 0,
-    cancellationPolicy: {
-      fullRefundHours: 12,
-      partialRefundHours: 6,
-      partialRefundPercentage: 25,
-    },
-  },
-  {
-    id: "event-4",
-    title: "Strength Training Fundamentals",
-    description: "Master the basics of strength training with proper form, programming, and progression strategies.",
-    fullDescription:
-      "This comprehensive training session covers the fundamental principles of strength training. Learn proper lifting techniques for major compound movements, understand programming basics, and discover how to progress safely and effectively. Perfect for beginners or those looking to refine their technique.",
-    date: "2025-03-08",
-    time: "11:00",
-    duration: 150,
-    location: "ATHLELAND Strength Zone",
-    category: "training",
-    maxParticipants: 12,
-    currentParticipants: 5,
-    price: 65,
-    instructor: "Coach John Doe",
-    difficulty: "Beginner",
-    image: "/placeholder.svg?height=400&width=600",
-    gallery: [],
-    tags: ["Strength", "Fundamentals", "Technique", "Programming"],
-    featured: false,
-    status: "published",
-    requirements: ["No prior strength training experience required", "Medical clearance for exercise"],
-    whatToBring: ["Athletic clothing", "Closed-toe shoes", "Water bottle", "Willingness to learn"],
-    isSponsored: true,
-    sponsor: inMemorySponsors[2],
-    registrationDeadline: "2025-03-06",
-    createdAt: "2025-01-22T13:00:00Z",
-    updatedAt: "2025-01-22T13:00:00Z",
-    allowWaitlist: true,
-    memberDiscount: 10,
-    cancellationPolicy: {
-      fullRefundHours: 48,
-      partialRefundHours: 24,
-      partialRefundPercentage: 60,
-    },
-  },
-]
+export async function deleteEventNeon(id: string) {
+  try {
+    const supabase = getAdmin()
+    await supabase.from("event_registrations").delete().eq("event_id", id)
+    const { error } = await supabase.from("events").delete().eq("id", id)
+    if (error) throw error
+    return { success: true }
+  } catch (e: any) {
+    console.error("Error deleting event (Supabase):", e)
+    return { success: false, message: e?.message || "Failed to delete event" }
+  }
+}

@@ -10,40 +10,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Plus,
-  Edit,
-  Trash2,
-  Save,
-  X,
-  Calendar,
-  Users,
-  Clock,
-  DollarSign,
-  Star,
-  Eye,
-  EyeOff,
-  Building2,
-  Award,
-  Upload,
-  CheckCircle,
-  AlertCircle,
+import {
+  Plus, Edit, Trash2, Save, X, Calendar, Users, Clock, DollarSign,
+  Star, Eye, EyeOff, Building2, Award, Upload, CheckCircle, AlertCircle
 } from "lucide-react"
 import Image from "next/image"
-import { Event, EventSponsor } from "@/lib/events"
 import {
-  fetchAllEvents,
-  fetchAllSponsors,
-  createEvent,
-  updateEvent,
-  deleteEvent,
-  toggleEventStatus,
-  createSponsor,
-  updateSponsor,
-  deleteSponsor,
-  uploadEventImage,
-  uploadSponsorLogo,
+  fetchAllEvents, fetchAllSponsors, createEvent, updateEvent,
+  deleteEvent, toggleEventStatus, createSponsor, updateSponsor, deleteSponsor
 } from "@/app/actions"
+
+// ✅ Supabase setup
+import { createClient } from "@supabase/supabase-js"
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+)
 
 export function EventManagement() {
   const [events, setEvents] = useState([])
@@ -65,7 +47,10 @@ export function EventManagement() {
 
   const loadData = async () => {
     try {
-      const [eventsData, sponsorsData] = await Promise.all([fetchAllEvents(), fetchAllSponsors()])
+      const [eventsData, sponsorsData] = await Promise.all([
+        fetchAllEvents(),
+        fetchAllSponsors(),
+      ])
       setEvents(eventsData)
       setSponsors(sponsorsData)
     } catch (error) {
@@ -75,53 +60,55 @@ export function EventManagement() {
     }
   }
 
-  // Real image upload using Vercel Blob
+  // ✅ Smarter Supabase Image Upload (auto public URL + cleaner filenames)
   const handleImageUpload = async (file, type) => {
+    if (!file) return
     setUploadingImage(true)
     setUploadMessage(null)
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      const bucket = type === "event" ? "events" : "sponsors"
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")
+      const fileName = `${Date.now()}-${sanitizedFileName}`
 
-      let result
-      if (type === "event") {
-        result = await uploadEventImage(formData)
-      } else {
-        result = await uploadSponsorLogo(formData)
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName)
+      const publicUrl = urlData?.publicUrl
+
+      if (!publicUrl) throw new Error("Failed to get public URL from Supabase")
+
+      if (type === "event" && editingEvent) {
+        updateEditingEvent({ image: publicUrl })
+      } else if (type === "sponsor" && editingSponsor) {
+        updateEditingSponsor({ logo: publicUrl })
       }
 
-      if (result.success && result.data) {
-        if (type === "event" && editingEvent) {
-          updateEditingEvent({ image: result.data })
-        } else if (type === "sponsor" && editingSponsor) {
-          updateEditingSponsor({ logo: result.data })
-        }
-        setUploadMessage(result.message || "Upload successful!")
-      } else {
-        setUploadMessage(result.message || "Upload failed")
-      }
+      setUploadMessage({ type: "success", text: "Upload successful!" })
     } catch (error) {
-      console.error("Upload error:", error)
-      setUploadMessage("Upload failed. Please try again.")
+      console.error("Supabase upload error:", error)
+      setUploadMessage({ type: "error", text: "Upload failed. Check bucket name or policy." })
     } finally {
       setUploadingImage(false)
-      // Clear message after 3 seconds
-      setTimeout(() => setUploadMessage(null), 3000)
+      setTimeout(() => setUploadMessage(null), 4000)
     }
   }
 
   const triggerImageUpload = (type) => {
-    if (type === "event") {
-      fileInputRef.current?.click()
-    } else {
-      logoInputRef.current?.click()
-    }
+    if (type === "event") fileInputRef.current?.click()
+    else logoInputRef.current?.click()
   }
 
-  // Event Management Functions
+  // ---------- Event CRUD ----------
   const handleCreateEvent = () => {
-    const newEvent = {
+    setEditingEvent({
       id: "",
       title: "",
       description: "",
@@ -147,35 +134,31 @@ export function EventManagement() {
       registrationDeadline: new Date().toISOString().split("T")[0],
       createdAt: "",
       updatedAt: "",
-    }
-    setEditingEvent(newEvent)
+    })
     setIsCreatingEvent(true)
   }
 
   const handleEditEvent = (event) => {
-    setEditingEvent({ ...event })
+    setEditingEvent({
+      ...event,
+      tags: event.tags || [],
+      requirements: event.requirements || [],
+      whatToBring: event.whatToBring || [],
+    })
     setIsCreatingEvent(false)
   }
 
   const handleSaveEvent = async () => {
     if (!editingEvent) return
-
     try {
-      if (isCreatingEvent) {
-        const result = await createEvent(editingEvent)
-        if (result.success) {
-          await loadData()
-          setEditingEvent(null)
-          setIsCreatingEvent(false)
-          onEventUpdate?.()
-        }
-      } else {
-        const result = await updateEvent(editingEvent.id, editingEvent)
-        if (result.success) {
-          await loadData()
-          setEditingEvent(null)
-          onEventUpdate?.()
-        }
+      const result = isCreatingEvent
+        ? await createEvent(editingEvent)
+        : await updateEvent(editingEvent.id, editingEvent)
+
+      if (result.success) {
+        await loadData()
+        setEditingEvent(null)
+        setIsCreatingEvent(false)
       }
     } catch (error) {
       console.error("Error saving event:", error)
@@ -186,10 +169,7 @@ export function EventManagement() {
     if (confirm("Are you sure you want to delete this event?")) {
       try {
         const result = await deleteEvent(id)
-        if (result.success) {
-          await loadData()
-          onEventUpdate?.()
-        }
+        if (result.success) await loadData()
       } catch (error) {
         console.error("Error deleting event:", error)
       }
@@ -199,26 +179,22 @@ export function EventManagement() {
   const handleToggleEventStatus = async (id, status) => {
     try {
       const result = await toggleEventStatus(id, status)
-      if (result.success) {
-        await loadData()
-        onEventUpdate?.()
-      }
+      if (result.success) await loadData()
     } catch (error) {
       console.error("Error updating event status:", error)
     }
   }
 
-  // Sponsor Management Functions
+  // ---------- Sponsor CRUD ----------
   const handleCreateSponsor = () => {
-    const newSponsor = {
+    setEditingSponsor({
       id: "",
       name: "",
       logo: "",
       website: "",
       tier: "bronze",
       isActive: true,
-    }
-    setEditingSponsor(newSponsor)
+    })
     setIsCreatingSponsor(true)
   }
 
@@ -229,21 +205,15 @@ export function EventManagement() {
 
   const handleSaveSponsor = async () => {
     if (!editingSponsor) return
-
     try {
-      if (isCreatingSponsor) {
-        const result = await createSponsor(editingSponsor)
-        if (result.success) {
-          await loadData()
-          setEditingSponsor(null)
-          setIsCreatingSponsor(false)
-        }
-      } else {
-        const result = await updateSponsor(editingSponsor.id, editingSponsor)
-        if (result.success) {
-          await loadData()
-          setEditingSponsor(null)
-        }
+      const result = isCreatingSponsor
+        ? await createSponsor(editingSponsor)
+        : await updateSponsor(editingSponsor.id, editingSponsor)
+
+      if (result.success) {
+        await loadData()
+        setEditingSponsor(null)
+        setIsCreatingSponsor(false)
       }
     } catch (error) {
       console.error("Error saving sponsor:", error)
@@ -254,11 +224,7 @@ export function EventManagement() {
     if (confirm("Are you sure you want to delete this sponsor?")) {
       try {
         const result = await deleteSponsor(id)
-        if (result.success) {
-          await loadData()
-        } else {
-          alert(result.message)
-        }
+        if (result.success) await loadData()
       } catch (error) {
         console.error("Error deleting sponsor:", error)
       }
@@ -266,59 +232,39 @@ export function EventManagement() {
   }
 
   const updateEditingEvent = (updates) => {
-    if (editingEvent) {
-      setEditingEvent({ ...editingEvent, ...updates })
-    }
+    if (editingEvent) setEditingEvent({ ...editingEvent, ...updates })
   }
-
   const updateEditingSponsor = (updates) => {
-    if (editingSponsor) {
-      setEditingSponsor({ ...editingSponsor, ...updates })
-    }
+    if (editingSponsor) setEditingSponsor({ ...editingSponsor, ...updates })
   }
 
   const getCategoryColor = (category) => {
     switch (category) {
-      case "workshop":
-        return "bg-purple-600/20 text-purple-400 border-purple-600/30"
-      case "competition":
-        return "bg-accent/20 text-accent border-accent/30"
-      case "seminar":
-        return "bg-blue-600/20 text-blue-400 border-blue-600/30"
-      case "training":
-        return "bg-green-600/20 text-green-400 border-green-600/30"
-      default:
-        return "bg-white/10 text-white/80 border-white/20"
+      case "workshop": return "bg-purple-600/20 text-purple-400 border-purple-600/30"
+      case "competition": return "bg-accent/20 text-accent border-accent/30"
+      case "seminar": return "bg-blue-600/20 text-blue-400 border-blue-600/30"
+      case "training": return "bg-green-600/20 text-green-400 border-green-600/30"
+      default: return "bg-white/10 text-white/80 border-white/20"
     }
   }
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "published":
-        return "bg-green-600/20 text-green-400 border-green-600/30"
-      case "draft":
-        return "bg-yellow-600/20 text-yellow-400 border-yellow-600/30"
-      case "cancelled":
-        return "bg-red-600/20 text-red-400 border-red-600/30"
-      case "completed":
-        return "bg-gray-600/20 text-gray-400 border-gray-600/30"
-      default:
-        return "bg-white/10 text-white/80 border-white/20"
+      case "published": return "bg-green-600/20 text-green-400 border-green-600/30"
+      case "draft": return "bg-yellow-600/20 text-yellow-400 border-yellow-600/30"
+      case "cancelled": return "bg-red-600/20 text-red-400 border-red-600/30"
+      case "completed": return "bg-gray-600/20 text-gray-400 border-gray-600/30"
+      default: return "bg-white/10 text-white/80 border-white/20"
     }
   }
 
   const getTierColor = (tier) => {
     switch (tier) {
-      case "platinum":
-        return "bg-gray-300/20 text-gray-300 border-gray-300/30"
-      case "gold":
-        return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30"
-      case "silver":
-        return "bg-gray-400/20 text-gray-400 border-gray-400/30"
-      case "bronze":
-        return "bg-orange-600/20 text-orange-400 border-orange-600/30"
-      default:
-        return "bg-white/10 text-white/80 border-white/20"
+      case "platinum": return "bg-gray-300/20 text-gray-300 border-gray-300/30"
+      case "gold": return "bg-yellow-500/20 text-yellow-500 border-yellow-500/30"
+      case "silver": return "bg-gray-400/20 text-gray-400 border-gray-400/30"
+      case "bronze": return "bg-orange-600/20 text-orange-400 border-orange-600/30"
+      default: return "bg-white/10 text-white/80 border-white/20"
     }
   }
 
@@ -331,43 +277,29 @@ export function EventManagement() {
     )
   }
 
+  // ---------------- UI ----------------
   return (
     <div className="space-y-8">
       {/* Hidden file inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleImageUpload(file, "event")
-        }}
-      />
-      <input
-        ref={logoInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleImageUpload(file, "sponsor")
-        }}
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], "event")} />
+      <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0], "sponsor")} />
 
-      {/* Upload Message */}
+      {/* Upload message */}
       {uploadMessage && (
         <div
-          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border backdrop-blur-sm ${
-            uploadMessage.type === "success"
+          className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border backdrop-blur-sm ${uploadMessage.type === "success"
               ? "bg-green-600/20 text-green-400 border-green-600/30"
               : "bg-red-600/20 text-red-400 border-red-600/30"
-          }`}
+            }`}
         >
           {uploadMessage.type === "success" ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
           <span className="font-light">{uploadMessage.text}</span>
         </div>
       )}
+
+  
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10">

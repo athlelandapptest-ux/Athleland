@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,18 +18,31 @@ export function SponsorshipForm() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setErrorMsg(null)
 
     try {
-      const response = await fetch("/api/sponsorship-inquiry", {
+      if (!formData.companyName || !formData.contactName || !formData.email) {
+        setErrorMsg("Please fill the required fields.")
+        setIsSubmitting(false)
+        return
+      }
+
+      const response = await fetch("https://formspree.io/f/xgvppqqg", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          _subject: `New Sponsorship Inquiry – ${formData.companyName}${formData.packageInterest ? ` (${formData.packageInterest})` : ""}`,
+          _replyto: formData.email, // lets you reply directly to the sender
+        }),
       })
 
       if (response.ok) {
@@ -43,19 +55,22 @@ export function SponsorshipForm() {
           packageInterest: "",
           message: "",
         })
+      } else {
+        const data = await response.json().catch(() => ({} as any))
+        setErrorMsg(data?.error || "Error submitting form. Please try again.")
       }
-    } catch (error) {
-      console.error("Error submitting form:", error)
+    } catch (err) {
+      console.error("Error submitting form:", err)
+      setErrorMsg("Network error. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }))
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
   if (submitted) {
@@ -93,6 +108,9 @@ export function SponsorshipForm() {
 
         <div className="bg-gray-900 border border-gray-800 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Honeypot to reduce spam */}
+            <input type="text" name="_honeypot" className="hidden" tabIndex={-1} autoComplete="off" />
+
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="companyName" className="text-white/80 text-sm tracking-wide">
@@ -184,6 +202,8 @@ export function SponsorshipForm() {
                 placeholder="Tell us about your partnership goals and how we can work together..."
               />
             </div>
+
+            {errorMsg && <p className="text-red-400 text-sm">{errorMsg}</p>}
 
             <Button
               type="submit"

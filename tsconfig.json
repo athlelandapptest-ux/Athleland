@@ -22,6 +22,6 @@
       "@/*": ["./*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/event-management.jsx", "components/class-management-full.jsx", "app/page.jsx", "app/events/page.jsx", "app/actions.js", "lib/neon-actions.js", "components/interactive-calendar.jsx", "components/sponsorship-management.jsx", "components/program-management-full.jsx", "components/workout-templates.jsx", "lib/database.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/ClassCounter.tsx", "components/event-management.jsx", "components/class-management-full.jsx", "app/page.jsx", "app/events/page.jsx", "app/actions.js", "lib/neon-actions.js", "components/interactive-calendar.jsx", "components/sponsorship-management.jsx", "components/program-management-full.jsx", "components/workout-templates.jsx", "lib/database.js", "lib/supabase/server.js", "app/api/coaches/route.js", "scripts/seedCoaches.js"],
   "exclude": ["node_modules"]
 }

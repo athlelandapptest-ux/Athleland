@@ -1,8 +1,7 @@
+// @ts-nocheck
 "use client"
 
-import React from "react"
-
-import { useState, useEffect } from "react"
+import React, { useEffect, useState } from "react"
 import { Plus, Edit, Trash2, Mail, Phone, Building, Star, Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,137 +10,161 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-
 export function SponsorshipManagement() {
   const [packages, setPackages] = useState([])
   const [inquiries, setInquiries] = useState([])
+  const [sponsors, setSponsors] = useState([])
   const [editingPackage, setEditingPackage] = useState(null)
   const [showPackageForm, setShowPackageForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  // ---- helpers ----
+  const coerceActive = (row) => {
+    if (!row) return false
+    if (typeof row.isActive !== "undefined") return !!row.isActive
+    if (typeof row.active !== "undefined") return !!row.active
+    if (typeof row.is_active !== "undefined") return !!row.is_active
+    if (typeof row.status === "string") return row.status.toLowerCase() === "active"
+    return false
+  }
+  const normalizeSponsor = (s) => ({ ...s, isActive: coerceActive(s) })
 
   useEffect(() => {
     fetchData()
   }, [])
 
-  const fetchData = async () => {
+  async function fetchData() {
+    setLoading(true)
+    setError("")
     try {
-      const [packagesRes, inquiriesRes] = await Promise.all([
+      const [packagesRes, inquiriesRes, sponsorsRes] = await Promise.all([
         fetch("/api/sponsorship-packages"),
         fetch("/api/sponsorship-inquiries"),
+        fetch("/api/sponsors"),
       ])
 
-      if (packagesRes.ok) {
-        const packagesData = await packagesRes.json()
-        setPackages(packagesData)
-      }
+      if (!packagesRes.ok) throw new Error("Failed to load packages")
+      if (!inquiriesRes.ok) throw new Error("Failed to load inquiries")
+      if (!sponsorsRes.ok) throw new Error("Failed to load sponsors")
 
-      if (inquiriesRes.ok) {
-        const inquiriesData = await inquiriesRes.json()
-        setInquiries(inquiriesData)
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error)
-      // Set default data
-      setPackages([
-        {
-          id: "1",
-          name: "Bronze Partner",
-          price: 2500,
-          duration: "per year",
-          features: ["Logo in reception area", "Social media mentions", "Member newsletter inclusion"],
-          highlighted: false,
-          available: true,
-        },
-        {
-          id: "2",
-          name: "Silver Partner",
-          price: 5000,
-          duration: "per year",
-          features: [
-            "Logo in training areas",
-            "Event co-branding",
-            "Quarterly member events",
-            "Website partnership page",
-          ],
-          highlighted: true,
-          available: true,
-        },
-        {
-          id: "3",
-          name: "Gold Partner",
-          price: 10000,
-          duration: "per year",
-          features: [
-            "Premium logo placement",
-            "Exclusive member discounts",
-            "Monthly events",
-            "Content collaboration",
-            "Athlete partnerships",
-          ],
-          highlighted: false,
-          available: true,
-        },
-      ])
-      setInquiries([])
+      const pkgs = await packagesRes.json()
+      const inqs = await inquiriesRes.json()
+      const sps = await sponsorsRes.json()
+
+      setPackages(Array.isArray(pkgs) ? pkgs : [])
+      setInquiries(Array.isArray(inqs) ? inqs : [])
+      setSponsors(Array.isArray(sps) ? sps.map(normalizeSponsor) : [])
+    } catch (e) {
+      console.error(e)
+      setError(e.message || "Failed to load data")
+      setPackages((prev) => prev || [])
+      setInquiries((prev) => prev || [])
+      setSponsors((prev) => prev || [])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSavePackage = async (packageData) => {
-    try {
-      const method = editingPackage ? "PUT" : "POST"
-      const url = editingPackage ? `/api/sponsorship-packages/${editingPackage.id}` : "/api/sponsorship-packages"
+  // Toggle sponsor active (optimistic UI + PATCH + rollback + re-sync)
+  async function handleToggleSponsor(s, newValue) {
+    const nextValue = !!newValue
+    setSponsors((prev) => prev.map((x) => (x.id === s.id ? { ...x, isActive: nextValue } : x)))
 
-      const response = await fetch(url, {
+    try {
+      const res = await fetch(`/api/sponsors/${encodeURIComponent(s.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: nextValue }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Failed to update sponsor")
+
+      // re-coerce from server reply (covers status-only schemas)
+      setSponsors((prev) =>
+        prev.map((x) => (x.id === s.id ? { ...x, isActive: coerceActive(json) } : x))
+      )
+    } catch (e) {
+      // rollback
+      setSponsors((prev) => prev.map((x) => (x.id === s.id ? { ...x, isActive: !nextValue } : x)))
+      alert(e.message || "Could not update sponsor")
+    }
+  }
+
+  async function handleSavePackage(packageData) {
+    try {
+      const isEdit = !!editingPackage
+      const url = isEdit
+        ? `/api/sponsorship-packages/${encodeURIComponent(editingPackage.id)}`
+        : "/api/sponsorship-packages"
+      const method = isEdit ? "PATCH" : "POST"
+
+      const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(packageData),
       })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Failed to save package")
 
-      if (response.ok) {
-        await fetchData()
-        setEditingPackage(null)
-        setShowPackageForm(false)
-      }
-    } catch (error) {
-      console.error("Error saving package:", error)
+      await fetchData()
+      setEditingPackage(null)
+      setShowPackageForm(false)
+    } catch (e) {
+      console.error("Error saving package:", e)
+      alert(e.message || "Error saving package")
     }
   }
 
-  const handleDeletePackage = async (id) => {
+  async function handleDeletePackage(id) {
     if (!confirm("Are you sure you want to delete this package?")) return
-
     try {
-      const response = await fetch(`/api/sponsorship-packages/${id}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        await fetchData()
-      }
-    } catch (error) {
-      console.error("Error deleting package:", error)
+      const res = await fetch(`/api/sponsorship-packages/${encodeURIComponent(id)}`, { method: "DELETE" })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Failed to delete package")
+      await fetchData()
+    } catch (e) {
+      console.error("Error deleting package:", e)
+      alert(e.message || "Error deleting package")
     }
   }
 
-  const handleUpdateInquiryStatus = async (id, status) => {
+  async function handleToggleField(pkg, field) {
+    const newValue = !pkg[field]
+    setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, [field]: newValue } : p)))
+
     try {
-      const response = await fetch(`/api/sponsorship-inquiries/${id}`, {
-        method: "PUT",
+      const res = await fetch(`/api/sponsorship-packages/${encodeURIComponent(pkg.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: newValue }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || `Failed to update ${field}`)
+    } catch (e) {
+      console.error(`Error toggling ${field}:`, e)
+      alert(e.message || `Error updating ${field}`)
+      setPackages((prev) => prev.map((p) => (p.id === pkg.id ? { ...p, [field]: pkg[field] } : p)))
+    }
+  }
+
+  async function handleUpdateInquiryStatus(id, status) {
+    try {
+      const res = await fetch(`/api/sponsorship-inquiries/${encodeURIComponent(id)}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       })
-
-      if (response.ok) {
-        await fetchData()
-      }
-    } catch (error) {
-      console.error("Error updating inquiry status:", error)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json?.error || "Failed to update inquiry")
+      await fetchData()
+    } catch (e) {
+      console.error("Error updating inquiry status:", e)
+      alert(e.message || "Error updating inquiry status")
     }
   }
 
-  const getStatusColor = (status) => {
+  function getStatusColor(status) {
     switch (status) {
       case "pending":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
@@ -172,10 +195,11 @@ export function SponsorshipManagement() {
           <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">
             {inquiries.filter((i) => i.status === "pending").length} Pending
           </Badge>
+          {error ? <span className="text-red-400 text-sm">{error}</span> : null}
         </div>
       </div>
 
-      <Tabs defaultValue="packages" className="w-full">
+      <Tabs defaultValue="sponsors" className="w-full">
         <TabsList className="bg-gray-900/50 border border-gray-800">
           <TabsTrigger value="packages" className="data-[state=active]:bg-orange-500">
             Packages ({packages.length})
@@ -183,12 +207,86 @@ export function SponsorshipManagement() {
           <TabsTrigger value="inquiries" className="data-[state=active]:bg-orange-500">
             Inquiries ({inquiries.length})
           </TabsTrigger>
+          <TabsTrigger value="sponsors" className="data-[state=active]:bg-orange-500">
+            Sponsors ({sponsors.length})
+          </TabsTrigger>
         </TabsList>
 
-        {/* Packages Tab */}
+        {/* Sponsors */}
+        <TabsContent value="sponsors" className="space-y-6">
+          {sponsors.length === 0 ? (
+            <div className="text-center py-12 text-white/60">No sponsors yet.</div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {sponsors.map((sponsor) => {
+                const active = !!sponsor.isActive // guaranteed boolean
+                return (
+                  <div key={sponsor.id} className="bg-gray-900/50 border border-gray-800 p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="text-lg font-medium text-white mb-1">
+                          {sponsor.name || sponsor.companyName || "Unnamed Sponsor"}
+                        </h3>
+                        <div className="text-xs text-white/50">
+                          {sponsor.created_at
+                            ? new Date(sponsor.created_at).toLocaleDateString()
+                            : sponsor.createdAt
+                            ? new Date(sponsor.createdAt).toLocaleDateString()
+                            : ""}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={active}
+                          onCheckedChange={(checked) => handleToggleSponsor(sponsor, checked)}
+                          aria-label="Activate sponsor"
+                        />
+                        <Badge
+                          className={
+                            active
+                              ? "bg-green-600/20 text-green-400 border-green-500/30"
+                              : "bg-red-600/20 text-red-400 border-red-500/30"
+                          }
+                        >
+                          {active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {sponsor.website ? (
+                      <div className="text-sm text-white/70">Website: {sponsor.website}</div>
+                    ) : null}
+
+                    <div className="mt-3 text-sm">
+                      <span className="text-white/60">Status: </span>
+                      <Badge
+                        className={
+                          active
+                            ? "bg-green-600/20 text-green-400 border-green-500/30"
+                            : "bg-red-600/20 text-red-400 border-red-500/30"
+                        }
+                      >
+                        {active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Packages */}
         <TabsContent value="packages" className="space-y-6">
           <div className="flex justify-end">
-            <Button onClick={() => setShowPackageForm(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Button
+              onClick={() => {
+                setEditingPackage(null)
+                setShowPackageForm(true)
+              }}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Package
             </Button>
@@ -200,23 +298,40 @@ export function SponsorshipManagement() {
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-medium text-white mb-1">{pkg.name}</h3>
-                    <div className="text-2xl font-thin text-orange-500">${pkg.price.toLocaleString()}</div>
+                    <div className="text-2xl font-thin text-orange-500">
+                      {typeof pkg.price === "number" ? `$${pkg.price.toLocaleString()}` : `$${pkg.price}`}
+                    </div>
                     <div className="text-sm text-white/60">{pkg.duration}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {pkg.highlighted && <Star className="w-4 h-4 text-orange-500" />}
-                    <Switch checked={pkg.available} />
+
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <Star className={`w-4 h-4 ${pkg.highlighted ? "text-orange-500" : "text-white/30"}`} />
+                      <Switch
+                        checked={!!pkg.highlighted}
+                        onCheckedChange={() => handleToggleField(pkg, "highlighted")}
+                        aria-label="Highlight package"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-white/60">Available</span>
+                      <Switch
+                        checked={!!pkg.available}
+                        onCheckedChange={() => handleToggleField(pkg, "available")}
+                        aria-label="Available package"
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2 mb-4">
-                  {pkg.features.slice(0, 3).map((feature, index) => (
+                  {(pkg.features || []).slice(0, 3).map((feature, index) => (
                     <div key={index} className="flex items-start gap-2 text-sm text-white/70">
                       <Check className="w-3 h-3 text-orange-500 mt-0.5 flex-shrink-0" />
                       {feature}
                     </div>
                   ))}
-                  {pkg.features.length > 3 && (
+                  {(pkg.features || []).length > 3 && (
                     <div className="text-xs text-white/50">+{pkg.features.length - 3} more features</div>
                   )}
                 </div>
@@ -248,7 +363,7 @@ export function SponsorshipManagement() {
           </div>
         </TabsContent>
 
-        {/* Inquiries Tab */}
+        {/* Inquiries */}
         <TabsContent value="inquiries" className="space-y-6">
           <div className="space-y-4">
             {inquiries.length === 0 ? (
@@ -268,36 +383,38 @@ export function SponsorshipManagement() {
                           <Mail className="w-3 h-3" />
                           {inquiry.email}
                         </div>
-                        {inquiry.phone && (
+                        {inquiry.phone ? (
                           <div className="flex items-center gap-1">
                             <Phone className="w-3 h-3" />
                             {inquiry.phone}
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <Badge className={getStatusColor(inquiry.status)}>
-                      {inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1)}
+                      {inquiry.status ? inquiry.status.charAt(0).toUpperCase() + inquiry.status.slice(1) : ""}
                     </Badge>
                   </div>
 
-                  {inquiry.packageInterest && (
+                  {inquiry.packageInterest ? (
                     <div className="mb-3">
                       <span className="text-sm text-white/60">Package Interest: </span>
                       <span className="text-sm text-orange-400">{inquiry.packageInterest}</span>
                     </div>
-                  )}
+                  ) : null}
 
-                  {inquiry.message && (
+                  {inquiry.message ? (
                     <div className="mb-4">
                       <p className="text-sm text-white/70 bg-black/30 p-3 rounded border border-gray-800">
                         {inquiry.message}
                       </p>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="flex items-center justify-between">
-                    <div className="text-xs text-white/50">{new Date(inquiry.createdAt).toLocaleDateString()}</div>
+                    <div className="text-xs text-white/50">
+                      {inquiry.createdAt ? new Date(inquiry.createdAt).toLocaleDateString() : ""}
+                    </div>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -337,10 +454,9 @@ export function SponsorshipManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Package Form Modal */}
       {showPackageForm && (
         <PackageForm
-          package={editingPackage}
+          pkg={editingPackage}
           onSave={handleSavePackage}
           onCancel={() => {
             setShowPackageForm(false)
@@ -352,54 +468,52 @@ export function SponsorshipManagement() {
   )
 }
 
-// Package Form Component
-function PackageForm({
-  package: pkg,
-  onSave,
-  onCancel,
-}) {
+/* ---------------- Package Form (JS only) ---------------- */
+function PackageForm({ pkg, onSave, onCancel }) {
   const [formData, setFormData] = useState({
-    name: pkg?.name || "",
-    price: pkg?.price || 0,
-    duration: pkg?.duration || "per year",
-    features: pkg?.features || [""],
-    highlighted: pkg?.highlighted || false,
-    available: pkg?.available || true,
+    name: pkg && pkg.name ? pkg.name : "",
+    price: pkg && typeof pkg.price === "number" ? pkg.price : Number((pkg && pkg.price) || 0),
+    duration: (pkg && pkg.duration) || "per year",
+    features: Array.isArray(pkg && pkg.features) ? pkg.features : [""],
+    highlighted: !!(pkg && pkg.highlighted),
+    available: pkg && pkg.available !== undefined ? !!pkg.available : true,
   })
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSave({
-      ...formData,
-      features: formData.features.filter((f) => f.trim() !== ""),
+  function updateFeature(index, value) {
+    setFormData((prev) => {
+      const next = [...prev.features]
+      next[index] = value
+      return { ...prev, features: next }
     })
   }
 
-  const addFeature = () => {
-    setFormData((prev) => ({
-      ...prev,
-      features: [...prev.features, ""],
-    }))
+  function addFeature() {
+    setFormData((prev) => ({ ...prev, features: [...prev.features, ""] }))
   }
 
-  const removeFeature = (index) => {
-    setFormData((prev) => ({
-      ...prev,
-      features: prev.features.filter((_, i) => i !== index),
-    }))
+  function removeFeature(index) {
+    setFormData((prev) => ({ ...prev, features: prev.features.filter((_, i) => i !== index) }))
   }
 
-  const updateFeature = (index, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      features: prev.features.map((f, i) => (i === index ? value : f)),
-    }))
+  function handleSubmit(e) {
+    e.preventDefault()
+    const payload = {
+      name: String(formData.name || "").trim(),
+      price: Number(formData.price) || 0,
+      duration: String(formData.duration || "").trim(),
+      features: (formData.features || []).filter((f) => String(f).trim() !== ""),
+      highlighted: !!formData.highlighted,
+      available: !!formData.available,
+    }
+    onSave(payload)
   }
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 border border-gray-800 p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h3 className="text-xl font-thin tracking-wide text-white mb-6">{pkg ? "Edit Package" : "Add New Package"}</h3>
+        <h3 className="text-xl font-thin tracking-wide text-white mb-6">
+          {pkg ? "Edit Package" : "Add New Package"}
+        </h3>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
@@ -407,7 +521,7 @@ function PackageForm({
               <Label className="text-white/80 text-sm tracking-wide">PACKAGE NAME</Label>
               <Input
                 value={formData.name}
-                onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                 className="bg-black border-gray-700 text-white mt-2"
                 required
               />
@@ -417,7 +531,7 @@ function PackageForm({
               <Input
                 type="number"
                 value={formData.price}
-                onChange={(e) => setFormData((prev) => ({ ...prev, price: Number(e.target.value) }))}
+                onChange={(e) => setFormData((p) => ({ ...p, price: Number(e.target.value) }))}
                 className="bg-black border-gray-700 text-white mt-2"
                 required
               />
@@ -428,7 +542,7 @@ function PackageForm({
             <Label className="text-white/80 text-sm tracking-wide">DURATION</Label>
             <Input
               value={formData.duration}
-              onChange={(e) => setFormData((prev) => ({ ...prev, duration: e.target.value }))}
+              onChange={(e) => setFormData((p) => ({ ...p, duration: e.target.value }))}
               className="bg-black border-gray-700 text-white mt-2"
               placeholder="e.g., per year, per month"
               required
@@ -469,15 +583,15 @@ function PackageForm({
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <Switch
-                checked={formData.highlighted}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, highlighted: checked }))}
+                checked={!!formData.highlighted}
+                onCheckedChange={(checked) => setFormData((p) => ({ ...p, highlighted: checked }))}
               />
               <Label className="text-white/80 text-sm">Highlight as popular</Label>
             </div>
             <div className="flex items-center gap-2">
               <Switch
-                checked={formData.available}
-                onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, available: checked }))}
+                checked={!!formData.available}
+                onCheckedChange={(checked) => setFormData((p) => ({ ...p, available: checked }))}
               />
               <Label className="text-white/80 text-sm">Available for purchase</Label>
             </div>

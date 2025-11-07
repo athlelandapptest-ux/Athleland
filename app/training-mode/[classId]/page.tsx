@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Play, Pause, RotateCcw, Maximize, ArrowLeft, Minimize } from "lucide-react"
 import Link from "next/link"
-import { fetchClassById } from "@/app/actions"
+import { fetchClassById } from "@/app/fetch-class-by-id";
 import type { WorkoutClass } from "@/lib/workouts"
 
 export default function TrainingModePage() {

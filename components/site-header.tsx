@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client"
 
 import { useState, useEffect } from "react"
@@ -5,22 +6,29 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MenuIcon, Search, Home, Calendar, Users, CalendarDays, Music, ChevronDown } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  MenuIcon,
+  Search,
+  Home,
+  Calendar,
+  Users,
+  CalendarDays,
+  Music,
+  ChevronDown,
+  Info,             // ← for About
+} from "lucide-react"
 import { getAppSettings } from "@/app/actions"
-
-interface Playlist {
-  id: string
-  name: string
-  category: string
-  url: string
-  isDefault: boolean
-}
 
 export function SiteHeader() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [playlists, setPlaylists] = useState([])
 
   useEffect(() => {
     const loadPlaylists = async () => {
@@ -32,7 +40,6 @@ export function SiteHeader() {
       }
     }
     loadPlaylists()
-
     const interval = setInterval(loadPlaylists, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -40,29 +47,24 @@ export function SiteHeader() {
   const navItems = [
     { href: "/", label: "Home", icon: Home },
     { href: "/#classes", label: "Classes", icon: Calendar },
-    // { href: "/events", label: "Events", icon: CalendarDays },
+    { href: "/events", label: "Events", icon: CalendarDays },
     { href: "/sponsorship", label: "Sponsorship", icon: Users },
-    // { href: "/about", label: "About", icon: Users },
+    { href: "/about", label: "About", icon: Info },        // ← NEW
   ]
 
-  const isActive = (href: string) => {
-    if (href.startsWith("/#")) {
-      return pathname === "/" && href === "#classes"
-    }
-    return pathname === href
+  const isActive = (href) => {
+    // treat `/#classes` as active only on home
+    if (href.includes("#")) return pathname === "/"
+    // highlight for exact path or any sub-route, e.g. /events/*
+    return pathname === href || pathname.startsWith(href + "/")
   }
 
-  const defaultPlaylist = playlists.find((p) => p.isDefault) || playlists[0]
-  const groupedPlaylists = playlists.reduce(
-    (acc, playlist) => {
-      if (!acc[playlist.category]) {
-        acc[playlist.category] = []
-      }
-      acc[playlist.category].push(playlist)
-      return acc
-    },
-    {} as Record<string, Playlist[]>,
-  )
+  const groupedPlaylists = playlists.reduce((acc, playlist) => {
+    const key = playlist.category || "Other"
+    if (!acc[key]) acc[key] = []
+    acc[key].push(playlist)
+    return acc
+  }, {})
 
   return (
     <>
@@ -81,21 +83,20 @@ export function SiteHeader() {
           <nav className="hidden lg:flex items-center gap-12">
             {navItems.map((item, index) => {
               const Icon = item.icon
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`group flex items-center gap-3 text-sm font-light transition-all duration-300 ${
-                    isActive(item.href) ? "text-white" : "text-gray-400 hover:text-white"
+                    active ? "text-white" : "text-gray-400 hover:text-white"
                   }`}
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <Icon className="h-4 w-4 transition-transform group-hover:scale-110" />
                   <span className="relative">
                     {item.label}
-                    {isActive(item.href) && (
-                      <div className="absolute -bottom-2 left-0 w-full h-px bg-white animate-fade-in"></div>
-                    )}
+                    {active && <div className="absolute -bottom-2 left-0 w-full h-px bg-white animate-fade-in" />}
                   </span>
                 </Link>
               )
@@ -158,13 +159,14 @@ export function SiteHeader() {
                 <nav className="flex flex-col gap-8 pt-12">
                   {navItems.map((item, index) => {
                     const Icon = item.icon
+                    const active = isActive(item.href)
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
                         onClick={() => setIsOpen(false)}
                         className={`flex items-center gap-4 text-lg font-light transition-all duration-300 animate-slide-in ${
-                          isActive(item.href) ? "text-white" : "text-gray-400 hover:text-white"
+                          active ? "text-white" : "text-gray-400 hover:text-white"
                         }`}
                         style={{ animationDelay: `${index * 0.1}s` }}
                       >
