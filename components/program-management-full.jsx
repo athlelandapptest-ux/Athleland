@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Save,
   X,
@@ -24,9 +24,9 @@ import {
   PauseCircle,
   ChevronLeft,
   ChevronRight,
-} from "lucide-react"
-import { ProgramEditor } from "@/components/program-editor"
-import { InteractiveCalendar } from "@/components/interactive-calendar"
+} from "lucide-react";
+import { ProgramEditor } from "@/components/program-editor";
+import { InteractiveCalendar } from "@/components/interactive-calendar";
 import {
   getCurrentProgram,
   updateProgramWeek,
@@ -35,262 +35,252 @@ import {
   updateProgramPhase,
   deleteProgramPhase,
   createProgram,
-} from "@/app/actions"
+  // new actions you added in actions.js
+  deleteProgram,
+  setActiveProgram,
+} from "@/app/actions";
 
 export function ProgramManagementFull() {
-  const router = useRouter()
-  const [activeTab, setActiveTab] = useState("overview")
-  const [currentProgram, setCurrentProgram] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editingPhase, setEditingPhase] = useState(null)
-  const [isAddingPhase, setIsAddingPhase] = useState(false)
-  const [newPhase, setNewPhase] = useState({ name: "", weeks: 4, focus: "" })
-  const [isCreatingProgram, setIsCreatingProgram] = useState(false)
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [currentProgram, setCurrentProgram] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingPhase, setEditingPhase] = useState(null);
+  const [isAddingPhase, setIsAddingPhase] = useState(false);
+  const [newPhase, setNewPhase] = useState({ name: "", weeks: 4, focus: "" });
+  const [isCreatingProgram, setIsCreatingProgram] = useState(false);
   const [programForm, setProgramForm] = useState({
     name: "",
     subtitle: "",
     startDate: "",
     phases: [],
-  })
-  const [newProgramPhase, setNewProgramPhase] = useState({ name: "", weeks: 4, focus: "" })
+  });
+  const [newProgramPhase, setNewProgramPhase] = useState({ name: "", weeks: 4, focus: "" });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
 
-  // Load current program
   useEffect(() => {
-    loadCurrentProgram()
-  }, [])
+    loadCurrentProgram();
+  }, []);
 
-  // Listen for real-time updates
   useEffect(() => {
-    const handleProgramUpdate = () => {
-      loadCurrentProgram()
-    }
-
+    const handleProgramUpdate = () => loadCurrentProgram();
     const handleWeeksUpdate = (event) => {
-      if (currentProgram) {
-        setCurrentProgram((prev) => (prev ? { ...prev, totalWeeks: event.detail.totalWeeks } : null))
-      }
-    }
-
-    window.addEventListener("programUpdated", handleProgramUpdate)
-    window.addEventListener("programWeeksUpdated", handleWeeksUpdate)
-
+      setCurrentProgram((prev) => (prev ? { ...prev, totalWeeks: event.detail.totalWeeks } : null));
+    };
+    window.addEventListener("programUpdated", handleProgramUpdate);
+    window.addEventListener("programWeeksUpdated", handleWeeksUpdate);
     return () => {
-      window.removeEventListener("programUpdated", handleProgramUpdate)
-      window.removeEventListener("programWeeksUpdated", handleWeeksUpdate)
-    }
-  }, [currentProgram])
+      window.removeEventListener("programUpdated", handleProgramUpdate);
+      window.removeEventListener("programWeeksUpdated", handleWeeksUpdate);
+    };
+  }, []);
 
   const loadCurrentProgram = async () => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const program = await getCurrentProgram()
-      setCurrentProgram(program)
+      const program = await getCurrentProgram();
+      setCurrentProgram(program);
     } catch (error) {
-      console.error("Error loading program:", error)
+      console.error("Error loading program:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleWeekChange = async (newWeek) => {
-    if (!currentProgram) return
-
+    if (!currentProgram) return;
     try {
-      const result = await updateProgramWeek(newWeek)
+      const result = await updateProgramWeek(newWeek);
       if (result.success) {
-        // Update local state immediately
         const updatedPhases = currentProgram.phases.map((phase) => {
-          let status = "completed" | "current" | "upcoming"
-          if (newWeek > phase.endWeek) {
-            status = "completed"
-          } else if (newWeek >= phase.startWeek && newWeek <= phase.endWeek) {
-            status = "current"
-          } else {
-            status = "upcoming"
-          }
-          return { ...phase, status }
-        })
-
-        setCurrentProgram((prev) =>
-          prev
-            ? {
-                ...prev,
-                currentWeek: newWeek,
-                phases: updatedPhases,
-              }
-            : null,
-        )
-
-        // Dispatch event for other components
-        window.dispatchEvent(new CustomEvent("programUpdated"))
+          let status = "upcoming";
+          if (newWeek > phase.endWeek) status = "completed";
+          else if (newWeek >= phase.startWeek && newWeek <= phase.endWeek) status = "current";
+          return { ...phase, status };
+        });
+        setCurrentProgram((prev) => (prev ? { ...prev, currentWeek: newWeek, phases: updatedPhases } : null));
+        window.dispatchEvent(new CustomEvent("programUpdated"));
       }
     } catch (error) {
-      console.error("Error updating week:", error)
+      console.error("Error updating week:", error);
     }
-  }
+  };
 
   const recalculatePhases = (phases) => {
-    let currentWeekCounter = 1
+    let currentWeekCounter = 1;
     return phases.map((phase) => {
-      const startWeek = currentWeekCounter
-      const endWeek = currentWeekCounter + phase.weeks - 1
-      currentWeekCounter += phase.weeks
-
-      let status = "completed" | "current" | "upcoming"
-      if (currentProgram && currentProgram.currentWeek > endWeek) {
-        status = "completed"
-      } else if (currentProgram && currentProgram.currentWeek >= startWeek && currentProgram.currentWeek <= endWeek) {
-        status = "current"
-      } else {
-        status = "upcoming"
-      }
-
-      return { ...phase, startWeek, endWeek, status }
-    })
-  }
+      const startWeek = currentWeekCounter;
+      const endWeek = currentWeekCounter + phase.weeks - 1;
+      currentWeekCounter += phase.weeks;
+      let status = "upcoming";
+      if (currentProgram && currentProgram.currentWeek > endWeek) status = "completed";
+      else if (currentProgram && currentProgram.currentWeek >= startWeek && currentProgram.currentWeek <= endWeek)
+        status = "current";
+      return { ...phase, startWeek, endWeek, status };
+    });
+  };
 
   const handleAddPhase = async () => {
-    if (!newPhase.name || !newPhase.focus) return
-
+    if (!newPhase.name || !newPhase.focus) return;
     try {
-      const result = await addProgramPhase(newPhase)
+      const result = await addProgramPhase(newPhase);
       if (result.success) {
-        await loadCurrentProgram()
-        setNewPhase({ name: "", weeks: 4, focus: "" })
-        setIsAddingPhase(false)
-
-        // Dispatch real-time update
-        window.dispatchEvent(new CustomEvent("programUpdated"))
+        await loadCurrentProgram();
+        setNewPhase({ name: "", weeks: 4, focus: "" });
+        setIsAddingPhase(false);
+        window.dispatchEvent(new CustomEvent("programUpdated"));
       }
     } catch (error) {
-      console.error("Error adding phase:", error)
+      console.error("Error adding phase:", error);
     }
-  }
+  };
 
   const handleUpdatePhase = async (phaseId, updates) => {
     try {
-      const result = await updateProgramPhase(phaseId, updates)
+      const result = await updateProgramPhase(phaseId, updates);
       if (result.success) {
-        await loadCurrentProgram()
-        setEditingPhase(null)
-
-        // Dispatch real-time update
-        window.dispatchEvent(new CustomEvent("programUpdated"))
+        await loadCurrentProgram();
+        setEditingPhase(null);
+        window.dispatchEvent(new CustomEvent("programUpdated"));
       }
     } catch (error) {
-      console.error("Error updating phase:", error)
+      console.error("Error updating phase:", error);
     }
-  }
+  };
 
   const handleDeletePhase = async (phaseId) => {
-    if (!confirm("Are you sure you want to delete this phase?")) return
-
+    if (!confirm("Are you sure you want to delete this phase?")) return;
     try {
-      const result = await deleteProgramPhase(phaseId)
+      const result = await deleteProgramPhase(phaseId);
       if (result.success) {
-        await loadCurrentProgram()
-
-        // Dispatch real-time update
-        window.dispatchEvent(new CustomEvent("programUpdated"))
+        await loadCurrentProgram();
+        window.dispatchEvent(new CustomEvent("programUpdated"));
       }
     } catch (error) {
-      console.error("Error deleting phase:", error)
+      console.error("Error deleting phase:", error);
     }
-  }
+  };
 
   const handlePhaseDurationChange = (phaseId, newWeeks) => {
-    if (!currentProgram) return
-
+    if (!currentProgram) return;
     const updatedPhases = currentProgram.phases.map((phase) =>
-      phase.id === phaseId ? { ...phase, weeks: newWeeks } : phase,
-    )
-
-    const recalculatedPhases = recalculatePhases(updatedPhases)
-    const totalWeeks = recalculatedPhases.reduce((sum, phase) => sum + phase.weeks, 0)
-
-    setCurrentProgram((prev) =>
-      prev
-        ? {
-            ...prev,
-            phases: recalculatedPhases,
-            totalWeeks,
-          }
-        : null,
-    )
-
-    // Dispatch event for cross-component updates
-    window.dispatchEvent(
-      new CustomEvent("programWeeksUpdated", {
-        detail: { totalWeeks },
-      }),
-    )
-  }
+      phase.id === phaseId ? { ...phase, weeks: newWeeks } : phase
+    );
+    const recalculatedPhases = recalculatePhases(updatedPhases);
+    const totalWeeks = recalculatedPhases.reduce((sum, phase) => sum + phase.weeks, 0);
+    setCurrentProgram((prev) => (prev ? { ...prev, phases: recalculatedPhases, totalWeeks } : null));
+    window.dispatchEvent(new CustomEvent("programWeeksUpdated", { detail: { totalWeeks } }));
+  };
 
   const getWeekDate = (weekNumber) => {
-    if (!currentProgram) return ""
-    const startDate = new Date(currentProgram.startDate)
-    const weekDate = new Date(startDate)
-    weekDate.setDate(startDate.getDate() + (weekNumber - 1) * 7)
-    return weekDate.toLocaleDateString()
-  }
+    if (!currentProgram) return "";
+    const startDate = new Date(currentProgram.startDate);
+    const weekDate = new Date(startDate);
+    weekDate.setDate(startDate.getDate() + (weekNumber - 1) * 7);
+    return weekDate.toLocaleDateString();
+  };
 
   const handleCreateProgram = async () => {
-    if (!programForm.name || !programForm.startDate || programForm.phases.length === 0) return
-
+    if (!programForm.name || !programForm.startDate || programForm.phases.length === 0) return;
     try {
       const result = await createProgram({
         name: programForm.name,
         subtitle: programForm.subtitle,
         startDate: programForm.startDate,
         phases: programForm.phases,
-      })
-
+      });
       if (result.success) {
-        console.log("Program created successfully:", result.data)
-        setIsCreatingProgram(false)
-        setProgramForm({ name: "", subtitle: "", startDate: "", phases: [] })
-        setNewProgramPhase({ name: "", weeks: 4, focus: "" })
-        // Reload programs after creation
-        await loadCurrentProgram()
-        // Force router refresh to update the UI
-        router.refresh()
+        setIsCreatingProgram(false);
+        setProgramForm({ name: "", subtitle: "", startDate: "", phases: [] });
+        setNewProgramPhase({ name: "", weeks: 4, focus: "" });
+        await loadCurrentProgram();
+        router.refresh();
       } else {
-        console.error("Failed to create program:", result.message)
+        console.error("Failed to create program:", result.message);
       }
     } catch (error) {
-      console.error("Error creating program:", error)
+      console.error("Error creating program:", error);
     }
-  }
+  };
 
-  const calculateTotalWeeks = (phases) => {
-    return phases.reduce((total, phase) => total + phase.weeks, 0)
-  }
+  const calculateTotalWeeks = (phases) => phases.reduce((total, phase) => total + phase.weeks, 0);
 
   const addPhaseToNewProgram = () => {
-    if (!newProgramPhase.name || !newProgramPhase.focus) return
-
-    setProgramForm((prev) => ({
-      ...prev,
-      phases: [...prev.phases, { ...newProgramPhase }],
-    }))
-    setNewProgramPhase({ name: "", weeks: 4, focus: "" })
-  }
+    if (!newProgramPhase.name || !newProgramPhase.focus) return;
+    setProgramForm((prev) => ({ ...prev, phases: [...prev.phases, { ...newProgramPhase }] }));
+    setNewProgramPhase({ name: "", weeks: 4, focus: "" });
+  };
 
   const removePhaseFromNewProgram = (index) => {
-    setProgramForm((prev) => ({
-      ...prev,
-      phases: prev.phases.filter((_, i) => i !== index),
-    }))
-  }
+    setProgramForm((prev) => ({ ...prev, phases: prev.phases.filter((_, i) => i !== index) }));
+  };
 
   const updatePhaseInNewProgram = (index, field, value) => {
     setProgramForm((prev) => ({
       ...prev,
       phases: prev.phases.map((phase, i) => (i === index ? { ...phase, [field]: value } : phase)),
-    }))
-  }
+    }));
+  };
 
+  // ===== Program-level: Set Active & Delete =====
+  const handleSetActiveProgram = async () => {
+    if (!currentProgram) return;
+    try {
+      setIsActivating(true);
+      if (typeof setActiveProgram === "function") {
+        const res = await setActiveProgram(currentProgram.id);
+        if (!res?.success) {
+          alert(`Failed to set active: ${res?.message || "Unknown error"}`);
+          return;
+        }
+      } else {
+        const res = await updateProgramDetails(currentProgram.id, { isActive: true, status: "active" });
+        if (!res?.success) {
+          alert(`Failed to set active: ${res?.message || "Unknown error"}`);
+          return;
+        }
+      }
+      await loadCurrentProgram();
+      router.refresh();
+      window.dispatchEvent(new CustomEvent("programUpdated"));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  const handleDeleteProgram = async () => {
+    if (!currentProgram) return;
+    const name = currentProgram.name || "this program";
+    const ok = confirm(
+      `Delete "${name}"?\n\nThis will permanently remove the row from the "programs" table. ` +
+        `It does NOT auto-delete related classes unless you added DB cascades.`
+    );
+    if (!ok) return;
+
+    try {
+      setIsDeleting(true);
+      const res = await deleteProgram(currentProgram.id);
+      if (!res?.success) {
+        alert(`Failed to delete: ${res?.message || "Unknown error"}`);
+        return;
+      }
+      setCurrentProgram(null);
+      router.refresh();
+      window.dispatchEvent(new CustomEvent("programUpdated"));
+      alert("Program deleted.");
+    } catch (e) {
+      console.error("Delete program error:", e);
+      alert("Failed to delete program.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // ===== UI =====
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64 px-4">
@@ -299,7 +289,7 @@ export function ProgramManagementFull() {
           Loading program...
         </div>
       </div>
-    )
+    );
   }
 
   if (isEditing && currentProgram) {
@@ -312,24 +302,25 @@ export function ProgramManagementFull() {
             subtitle: updatedProgram.subtitle,
             startDate: updatedProgram.startDate,
             totalWeeks: updatedProgram.totalWeeks,
-          })
-          setCurrentProgram(updatedProgram)
-          setIsEditing(false)
-          window.dispatchEvent(new CustomEvent("programUpdated"))
+          });
+          setCurrentProgram(updatedProgram);
+          setIsEditing(false);
+          window.dispatchEvent(new CustomEvent("programUpdated"));
         }}
         onCancel={() => setIsEditing(false)}
       />
-    )
+    );
   }
 
   return (
     <div className="space-y-4 px-4 sm:px-6 lg:px-8">
-      {/* Mobile-Optimized Header */}
+      {/* Header with actions */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-thin text-white tracking-wide">Program Management</h2>
           <p className="text-white/60 font-light text-sm sm:text-base">Manage training programs and phases</p>
         </div>
+
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button
             onClick={() => setIsCreatingProgram(true)}
@@ -339,26 +330,52 @@ export function ProgramManagementFull() {
             <Plus className="h-4 w-4 mr-2" />
             Add New Program
           </Button>
+
           {currentProgram && (
-            <Button
-              onClick={() => setIsEditing(true)}
-              className="bg-accent hover:bg-accent/90 text-black w-full sm:w-auto"
-              size="sm"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Program
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="bg-accent hover:bg-accent/90 text-black w-full sm:w-auto"
+                size="sm"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Program
+              </Button>
+
+              {!currentProgram.isActive && (
+                <Button
+                  onClick={handleSetActiveProgram}
+                  className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
+                  size="sm"
+                  disabled={isActivating}
+                >
+                  {isActivating ? "Activating..." : "Set Active"}
+                </Button>
+              )}
+
+              <Button
+                onClick={handleDeleteProgram}
+                variant="destructive"
+                className="w-full sm:w-auto"
+                size="sm"
+                disabled={isDeleting}
+                title="Delete this program"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {isDeleting ? "Deleting..." : "Delete Program"}
+              </Button>
+            </>
           )}
         </div>
       </div>
 
+      {/* Create Program Panel */}
       {isCreatingProgram && (
         <Card className="glass border-white/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-white text-lg">Create New Program</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Basic Program Info */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label className="text-white text-sm">Program Name</Label>
@@ -379,6 +396,7 @@ export function ProgramManagementFull() {
                 />
               </div>
             </div>
+
             <div>
               <Label className="text-white text-sm">Subtitle</Label>
               <Input
@@ -397,7 +415,7 @@ export function ProgramManagementFull() {
                 </Badge>
               </div>
 
-              {/* Add New Phase Form */}
+              {/* Add Phase form */}
               <Card className="bg-white/5 border-white/10">
                 <CardContent className="p-4 space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -408,7 +426,6 @@ export function ProgramManagementFull() {
                         onChange={(e) => setNewProgramPhase((prev) => ({ ...prev, name: e.target.value }))}
                         className="bg-white/5 border-white/20 text-white mt-1"
                         placeholder="e.g., Foundation Phase"
-                        size="sm"
                       />
                     </div>
                     <div>
@@ -418,10 +435,9 @@ export function ProgramManagementFull() {
                         min="1"
                         value={newProgramPhase.weeks}
                         onChange={(e) =>
-                          setNewProgramPhase((prev) => ({ ...prev, weeks: Number.parseInt(e.target.value) }))
+                          setNewProgramPhase((prev) => ({ ...prev, weeks: parseInt(e.target.value || "1", 10) }))
                         }
                         className="bg-white/5 border-white/20 text-white mt-1"
-                        size="sm"
                       />
                     </div>
                   </div>
@@ -436,9 +452,12 @@ export function ProgramManagementFull() {
                     />
                   </div>
                   <Button
-                    onClick={addPhaseToNewProgram}
+                    onClick={() => {
+                      if (!newProgramPhase.name || !newProgramPhase.focus) return;
+                      setProgramForm((prev) => ({ ...prev, phases: [...prev.phases, { ...newProgramPhase }] }));
+                      setNewProgramPhase({ name: "", weeks: 4, focus: "" });
+                    }}
                     className="bg-accent hover:bg-accent/90 text-black w-full"
-                    size="sm"
                     disabled={!newProgramPhase.name || !newProgramPhase.focus}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -447,7 +466,7 @@ export function ProgramManagementFull() {
                 </CardContent>
               </Card>
 
-              {/* Display Added Phases */}
+              {/* Added phases list */}
               {programForm.phases.length > 0 && (
                 <div className="space-y-2">
                   <Label className="text-white text-sm">Added Phases:</Label>
@@ -459,31 +478,49 @@ export function ProgramManagementFull() {
                             <div className="flex items-center gap-2">
                               <Input
                                 value={phase.name}
-                                onChange={(e) => updatePhaseInNewProgram(index, "name", e.target.value)}
+                                onChange={(e) =>
+                                  setProgramForm((prev) => ({
+                                    ...prev,
+                                    phases: prev.phases.map((p, i) => (i === index ? { ...p, name: e.target.value } : p)),
+                                  }))
+                                }
                                 className="bg-white/5 border-white/20 text-white text-sm"
-                                size="sm"
                               />
                               <Input
                                 type="number"
                                 min="1"
                                 value={phase.weeks}
                                 onChange={(e) =>
-                                  updatePhaseInNewProgram(index, "weeks", Number.parseInt(e.target.value))
+                                  setProgramForm((prev) => ({
+                                    ...prev,
+                                    phases: prev.phases.map((p, i) =>
+                                      i === index ? { ...p, weeks: parseInt(e.target.value || "1", 10) } : p
+                                    ),
+                                  }))
                                 }
                                 className="bg-white/5 border-white/20 text-white text-sm w-20"
-                                size="sm"
                               />
                               <span className="text-white/60 text-xs">weeks</span>
                             </div>
                             <Textarea
                               value={phase.focus}
-                              onChange={(e) => updatePhaseInNewProgram(index, "focus", e.target.value)}
+                              onChange={(e) =>
+                                setProgramForm((prev) => ({
+                                  ...prev,
+                                  phases: prev.phases.map((p, i) => (i === index ? { ...p, focus: e.target.value } : p)),
+                                }))
+                              }
                               className="bg-white/5 border-white/20 text-white text-sm"
                               rows={2}
                             />
                           </div>
                           <Button
-                            onClick={() => removePhaseFromNewProgram(index)}
+                            onClick={() =>
+                              setProgramForm((prev) => ({
+                                ...prev,
+                                phases: prev.phases.filter((_, i) => i !== index),
+                              }))
+                            }
                             variant="ghost"
                             size="sm"
                             className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
@@ -509,9 +546,9 @@ export function ProgramManagementFull() {
               </Button>
               <Button
                 onClick={() => {
-                  setIsCreatingProgram(false)
-                  setProgramForm({ name: "", subtitle: "", startDate: "", phases: [] })
-                  setNewProgramPhase({ name: "", weeks: 4, focus: "" })
+                  setIsCreatingProgram(false);
+                  setProgramForm({ name: "", subtitle: "", startDate: "", phases: [] });
+                  setNewProgramPhase({ name: "", weeks: 4, focus: "" });
                 }}
                 variant="outline"
                 className="flex-1"
@@ -534,31 +571,20 @@ export function ProgramManagementFull() {
         </Card>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          {/* Mobile-Optimized Tab List */}
           <TabsList className="grid w-full grid-cols-3 bg-white/5 border border-white/10 h-auto">
-            <TabsTrigger
-              value="overview"
-              className="data-[state=active]:bg-accent data-[state=active]:text-black text-xs sm:text-sm py-2"
-            >
+            <TabsTrigger value="overview" className="data-[state=active]:bg-accent data-[state=active]:text-black text-xs sm:text-sm py-2">
               Overview
             </TabsTrigger>
-            <TabsTrigger
-              value="phases"
-              className="data-[state=active]:bg-accent data-[state=active]:text-black text-xs sm:text-sm py-2"
-            >
+            <TabsTrigger value="phases" className="data-[state=active]:bg-accent data-[state=active]:text-black text-xs sm:text-sm py-2">
               Phases
             </TabsTrigger>
-            <TabsTrigger
-              value="calendar"
-              className="data-[state=active]:bg-accent data-[state=active]:text-black text-xs sm:text-sm py-2"
-            >
+            <TabsTrigger value="calendar" className="data-[state=active]:bg-accent data-[state=active]:text-black text-xs sm:text-sm py-2">
               Calendar
             </TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab - Mobile Optimized */}
+          {/* Overview */}
           <TabsContent value="overview" className="space-y-4 sm:space-y-6">
-            {/* Mobile-Optimized Program Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
               <Card className="glass border-white/10">
                 <CardContent className="p-4 sm:p-6">
@@ -585,9 +611,7 @@ export function ProgramManagementFull() {
                       Week {currentProgram.currentWeek}
                     </div>
                     <Button
-                      onClick={() =>
-                        handleWeekChange(Math.min(currentProgram.totalWeeks, currentProgram.currentWeek + 1))
-                      }
+                      onClick={() => handleWeekChange(Math.min(currentProgram.totalWeeks, currentProgram.currentWeek + 1))}
                       disabled={currentProgram.currentWeek >= currentProgram.totalWeeks}
                       size="sm"
                       variant="outline"
@@ -636,7 +660,6 @@ export function ProgramManagementFull() {
               </Card>
             </div>
 
-            {/* Mobile-Optimized Progress Bar */}
             <Card className="glass border-white/10">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4 mb-4">
@@ -657,21 +680,16 @@ export function ProgramManagementFull() {
             </Card>
           </TabsContent>
 
-          {/* Phases Tab - Mobile Optimized */}
+          {/* Phases */}
           <TabsContent value="phases" className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <h3 className="text-white font-medium text-lg sm:text-xl">Program Phases</h3>
-              <Button
-                onClick={() => setIsAddingPhase(true)}
-                className="bg-accent hover:bg-accent/90 text-black w-full sm:w-auto"
-                size="sm"
-              >
+              <Button onClick={() => setIsAddingPhase(true)} className="bg-accent hover:bg-accent/90 text-black w-full sm:w-auto" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Phase
               </Button>
             </div>
 
-            {/* Mobile-Optimized Add Phase Form */}
             {isAddingPhase && (
               <Card className="glass border-white/10">
                 <CardHeader className="pb-3">
@@ -694,7 +712,7 @@ export function ProgramManagementFull() {
                         type="number"
                         min="1"
                         value={newPhase.weeks}
-                        onChange={(e) => setNewPhase((prev) => ({ ...prev, weeks: Number.parseInt(e.target.value) }))}
+                        onChange={(e) => setNewPhase((prev) => ({ ...prev, weeks: parseInt(e.target.value || "1", 10) }))}
                         className="bg-white/5 border-white/20 text-white mt-2"
                       />
                     </div>
@@ -716,8 +734,8 @@ export function ProgramManagementFull() {
                     </Button>
                     <Button
                       onClick={() => {
-                        setIsAddingPhase(false)
-                        setNewPhase({ name: "", weeks: 4, focus: "" })
+                        setIsAddingPhase(false);
+                        setNewPhase({ name: "", weeks: 4, focus: "" });
                       }}
                       variant="outline"
                       className="flex-1"
@@ -730,7 +748,6 @@ export function ProgramManagementFull() {
               </Card>
             )}
 
-            {/* Mobile-Optimized Phases List */}
             <div className="space-y-4">
               {currentProgram.phases.map((phase, index) => (
                 <Card
@@ -739,8 +756,8 @@ export function ProgramManagementFull() {
                     phase.status === "current"
                       ? "border-accent/50 bg-accent/5"
                       : phase.status === "completed"
-                        ? "border-green-500/50 bg-green-500/5"
-                        : ""
+                      ? "border-green-500/50 bg-green-500/5"
+                      : ""
                   }`}
                 >
                   <CardContent className="p-4 sm:p-6">
@@ -751,8 +768,8 @@ export function ProgramManagementFull() {
                             phase.status === "current"
                               ? "bg-accent/20 text-accent"
                               : phase.status === "completed"
-                                ? "bg-green-600/20 text-green-400"
-                                : "bg-white/10 text-white/60"
+                              ? "bg-green-600/20 text-green-400"
+                              : "bg-white/10 text-white/60"
                           }`}
                         >
                           {phase.status === "completed" && <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -770,32 +787,21 @@ export function ProgramManagementFull() {
                             phase.status === "current"
                               ? "bg-accent/20 text-accent border-accent/30"
                               : phase.status === "completed"
-                                ? "bg-green-600/20 text-green-400 border-green-500/30"
-                                : "bg-white/10 text-white/60 border-white/20"
+                              ? "bg-green-600/20 text-green-400 border-green-500/30"
+                              : "bg-white/10 text-white/60 border-white/20"
                           }`}
                         >
                           {phase.status}
                         </Badge>
-                        <Button
-                          onClick={() => setEditingPhase(phase)}
-                          size="sm"
-                          variant="outline"
-                          className="h-8 w-8 p-0"
-                        >
+                        <Button onClick={() => setEditingPhase(phase)} size="sm" variant="outline" className="h-8 w-8 p-0">
                           <Edit className="h-3 w-3" />
                         </Button>
-                        <Button
-                          onClick={() => handleDeletePhase(phase.id)}
-                          size="sm"
-                          variant="destructive"
-                          className="h-8 w-8 p-0"
-                        >
+                        <Button onClick={() => handleDeletePhase(phase.id)} size="sm" variant="destructive" className="h-8 w-8 p-0">
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
 
-                    {/* Mobile-Optimized Interactive Phase Metrics */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white/5 rounded-lg p-3">
                       <div className="text-center">
                         <div className="text-lg sm:text-2xl font-thin text-white mb-1">
@@ -803,7 +809,7 @@ export function ProgramManagementFull() {
                             type="number"
                             min="1"
                             value={phase.weeks}
-                            onChange={(e) => handlePhaseDurationChange(phase.id, Number.parseInt(e.target.value))}
+                            onChange={(e) => handlePhaseDurationChange(phase.id, parseInt(e.target.value || "1", 10))}
                             className="bg-transparent border-none text-center text-lg sm:text-2xl font-thin text-white p-0 h-auto w-full"
                           />
                         </div>
@@ -834,7 +840,6 @@ export function ProgramManagementFull() {
               ))}
             </div>
 
-            {/* Mobile-Optimized Edit Phase Modal */}
             {editingPhase && (
               <Card className="glass border-white/10">
                 <CardHeader className="pb-3">
@@ -857,7 +862,7 @@ export function ProgramManagementFull() {
                         min="1"
                         value={editingPhase.weeks}
                         onChange={(e) =>
-                          setEditingPhase((prev) => (prev ? { ...prev, weeks: Number.parseInt(e.target.value) } : null))
+                          setEditingPhase((prev) => (prev ? { ...prev, weeks: parseInt(e.target.value || "1", 10) } : null))
                         }
                         className="bg-white/5 border-white/20 text-white mt-2"
                       />
@@ -896,7 +901,7 @@ export function ProgramManagementFull() {
             )}
           </TabsContent>
 
-          {/* Calendar Tab - Mobile Optimized */}
+          {/* Calendar */}
           <TabsContent value="calendar" className="space-y-4">
             <div className="w-full overflow-x-auto">
               <InteractiveCalendar
@@ -908,5 +913,5 @@ export function ProgramManagementFull() {
         </Tabs>
       )}
     </div>
-  )
+  );
 }
