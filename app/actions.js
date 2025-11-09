@@ -336,11 +336,13 @@ export async function getRoutineByKey(key) {
   return inMemoryRoutines.find((r) => r.key === key) || null;
 }
 
-// =======================
+/// =======================
 // Classes (workout_classes)
 // =======================
 
-// Small local helpers
+
+
+/* ---------- Small local helpers ---------- */
 function ensureArray(val) {
   if (!val) return [];
   if (Array.isArray(val)) return val;
@@ -358,13 +360,29 @@ function ensureArray(val) {
 function normalizeTime(t) {
   // Accept "07:00" or "07:00:00" and always return HH:MM:SS
   if (!t) return null;
-  const s = String(t);
+  const s = String(t).trim();
   if (/^\d{2}:\d{2}:\d{2}$/.test(s)) return s;
   if (/^\d{2}:\d{2}$/.test(s)) return `${s}:00`;
   return s; // fallback (DB will reject if invalid)
 }
 
-// ---------- Generate Class Preview ----------
+function normalizeDate(d) {
+  // Accept Date, ISO date, or "YYYY-MM-DD". Return "YYYY-MM-DD" or null.
+  if (!d) return null;
+  if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return null;
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function safeParse(s) {
+  try { return JSON.parse(s); } catch { return s; }
+}
+
+/* ---------- Generate Class Preview ---------- */
 export async function generateClassPreview(
   templateKeys,
   className,
@@ -477,7 +495,7 @@ export async function generateClassPreview(
 
     // Fallback if template didn’t provide
     const finalWB = ensureArray(workoutBreakdown).length ? workoutBreakdown : [
-      { title: "Main Workout", exercises: [{ name: "Full Body Circuit", unit: "seconds", duration: Math.max(10, duration - 10) }] },
+      { title: "Main Workout", exercises: [{ name: "Full Body Circuit", unit: "seconds", duration: Math.max(10, Number(duration) - 10) }] },
     ];
 
     const classPreview = {
@@ -487,7 +505,7 @@ export async function generateClassPreview(
       title: finalClassName,
       name: finalClassName,
       description: classDescription,
-      date,
+      date: normalizeDate(date),
       time: normalizeTime(time),
       duration: Number(duration),
       intensity: Number(intensity),
@@ -510,7 +528,7 @@ export async function generateClassPreview(
   }
 }
 
-// ---------- Save (Insert) ----------
+/* ---------- Save (Insert) ---------- */
 export async function saveApprovedClass(input) {
   const sb = getSb();
 
@@ -523,8 +541,8 @@ export async function saveApprovedClass(input) {
     name: input.name || input.title || "Untitled Class",
     description: input.description ?? null,
 
-    date: input.date ?? null,                         // YYYY-MM-DD
-    time: normalizeTime(input.time),                  // HH:MM:SS
+    date: normalizeDate(input.date),                // YYYY-MM-DD
+    time: normalizeTime(input.time),                // HH:MM:SS
     duration: Number(input.duration ?? 60),
 
     intensity: Number(input.intensity ?? input.numerical_intensity ?? 8),
@@ -543,7 +561,6 @@ export async function saveApprovedClass(input) {
     updated_at: new Date().toISOString(),
   };
 
-  // defensive cleanup
   if (!Array.isArray(row.workout_breakdown)) row.workout_breakdown = [];
 
   const { data, error } = await sb
@@ -556,10 +573,15 @@ export async function saveApprovedClass(input) {
     console.error("[saveApprovedClass] Supabase insert error:", error);
     return { success: false, message: error.message };
   }
+
+  // ✅ Revalidate public readers
+  revalidatePath("/");
+  revalidatePath("/api/data");
+
   return { success: true, data };
 }
 
-// ---------- Update ----------
+/* ---------- Update ---------- */
 export async function updateClass(id, input) {
   const sb = getSb();
 
@@ -572,7 +594,7 @@ export async function updateClass(id, input) {
     title: input.title ?? undefined,
     name: input.name ?? undefined,
     description: input.description ?? undefined,
-    date: input.date ?? undefined,
+    date: input.date != null ? normalizeDate(input.date) : undefined,
     time: input.time != null ? normalizeTime(input.time) : undefined,
     duration: input.duration != null ? Number(input.duration) : undefined,
 
@@ -632,17 +654,25 @@ export async function updateClass(id, input) {
     console.error("[updateClass] Supabase update error:", error);
     return { success: false, message: error.message };
   }
+
+  // ✅ Revalidate public readers
+  revalidatePath("/");
+  revalidatePath("/api/data");
+
   return { success: true, data };
 }
 
-// ---------- Delete ----------
+/* ---------- Delete ---------- */
 export async function deleteClassById(id) {
   try {
     const sb = getSb();
     const { error } = await sb.from("workout_classes").delete().eq("id", id);
     if (error) throw error;
-    // optional: if you use Next cache
-    // revalidatePath("/admin"); revalidatePath("/");
+
+    // ✅ Revalidate public readers
+    revalidatePath("/");
+    revalidatePath("/api/data");
+
     return { success: true, message: "Class deleted successfully!" };
   } catch (e) {
     console.error("[deleteClassById] error:", e);
@@ -650,7 +680,7 @@ export async function deleteClassById(id) {
   }
 }
 
-// ---------- Fetch All (Admin) ----------
+/* ---------- Fetch All (Admin) ---------- */
 export async function fetchAllClassesAdmin(includeDrafts = false) {
   const sb = getSb();
 
@@ -694,11 +724,7 @@ export async function fetchAllClassesAdmin(includeDrafts = false) {
   }));
 }
 
-function safeParse(s) {
-  try { return JSON.parse(s); } catch { return s; }
-}
-
-// ---------- Get by ID (Public/Admin) ----------
+/* ---------- Get by ID (Public/Admin) ---------- */
 export async function getClassById(classId) {
   try {
     const sb = getSb();
@@ -744,7 +770,7 @@ export async function getClassById(classId) {
   }
 }
 
-// ---------- Fetch All (Public list) ----------
+/* ---------- Fetch All (Public list) ---------- */
 export async function fetchAllClasses() {
   try {
     const sb = getSb();
@@ -789,7 +815,7 @@ export async function fetchAllClasses() {
   }
 }
 
-// ---------- AI Tone (unchanged logic, slightly hardened) ----------
+/* ---------- AI Tone (unchanged logic, slightly hardened) ---------- */
 export async function generateClassTone(routineData) {
   try {
     const { title, hyroxPrepTypes = [], rounds = [] } = routineData || {};
@@ -828,7 +854,6 @@ export async function generateClassTone(routineData) {
       reasoning += "it develops the aerobic base crucial for long-term success. ";
     reasoning += "The progressive structure ensures adaptation while maintaining safety and effectiveness.";
 
-    // keep async signature (no-op delay)
     await new Promise((r) => setTimeout(r, 100));
     return { success: true, data: reasoning };
   } catch (e) {
@@ -836,6 +861,7 @@ export async function generateClassTone(routineData) {
     return { success: false, message: "Failed to generate AI tone" };
   }
 }
+
 
 
 
