@@ -865,9 +865,11 @@ export async function generateClassTone(routineData) {
 
 
 
+/// =======================
+// Programs (Supabase-backed) - JS version
 // =======================
-// Programs (Supabase-backed)
-// =======================
+
+
 
 /** Helpers **/
 function nowIso() {
@@ -876,7 +878,12 @@ function nowIso() {
 function safeArray(a) {
   if (!a) return [];
   if (Array.isArray(a)) return a;
-  try { const p = JSON.parse(a); return Array.isArray(p) ? p : []; } catch { return []; }
+  try {
+    const p = JSON.parse(a);
+    return Array.isArray(p) ? p : [];
+  } catch {
+    return [];
+  }
 }
 function mapRowToProgram(p) {
   return {
@@ -914,7 +921,7 @@ function mapProgramToRow(obj) {
 /** Phase utilities **/
 function recomputePhaseRanges(phases) {
   let cursor = 1;
-  return phases.map((ph, i) => {
+  return (phases || []).map((ph, i) => {
     const weeks = Number(ph.weeks || 1);
     const startWeek = cursor;
     const endWeek = cursor + weeks - 1;
@@ -932,7 +939,7 @@ function recomputePhaseRanges(phases) {
   });
 }
 function applyPhaseStatuses(phases, currentWeek) {
-  return phases.map((ph) => {
+  return (phases || []).map((ph) => {
     let status = "upcoming";
     if (currentWeek > ph.endWeek) status = "completed";
     else if (currentWeek >= ph.startWeek && currentWeek <= ph.endWeek) status = "current";
@@ -943,7 +950,6 @@ function applyPhaseStatuses(phases, currentWeek) {
 /** Read current program (website uses this) **/
 export async function getCurrentProgram() {
   const sb = getSb();
-  // prefer explicit is_active=true, fallback to latest active status
   const { data, error } = await sb
     .from("programs")
     .select("*")
@@ -960,14 +966,24 @@ export async function getCurrentProgram() {
   return mapRowToProgram(data);
 }
 
+/** Get a program by ID (useful for details) **/
+export async function getProgramById(programId) {
+  try {
+    const sb = getSb();
+    const { data, error } = await sb.from("programs").select("*").eq("id", programId).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return mapRowToProgram(data);
+  } catch (e) {
+    console.error("[getProgramById] error:", e);
+    return null;
+  }
+}
+
 /** List all programs (admin) **/
 export async function fetchAllPrograms() {
   const sb = getSb();
-  const { data, error } = await sb
-    .from("programs")
-    .select("*")
-    .order("created_at", { ascending: false });
-
+  const { data, error } = await sb.from("programs").select("*").order("created_at", { ascending: false });
   if (error) {
     console.error("[fetchAllPrograms] error:", error);
     return [];
@@ -978,7 +994,7 @@ export async function fetchAllPrograms() {
 /** Create program (admin) **/
 export async function createProgram(programData) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
 
     // compute phases ranges and totalWeeks
     const rawPhases = Array.isArray(programData.phases) ? programData.phases : [];
@@ -986,7 +1002,10 @@ export async function createProgram(programData) {
     const totalWeeks = phasesWithRanges.reduce((acc, p) => acc + Number(p.weeks || 0), 0) || 1;
 
     // deactivate others
-    const deact = await sb.from("programs").update({ is_active: false, status: "inactive", updated_at: nowIso() }).eq("is_active", true);
+    const deact = await sb
+      .from("programs")
+      .update({ is_active: false, status: "inactive", updated_at: nowIso() })
+      .eq("is_active", true);
     if (deact.error) console.warn("[createProgram] deactivation warning:", deact.error.message);
 
     const newProgram = {
@@ -1024,7 +1043,7 @@ export async function createProgram(programData) {
 /** Update current week (admin) **/
 export async function updateProgramWeek(newWeek) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
     const current = await getCurrentProgram();
     if (!current) return { success: false, message: "No active program found" };
 
@@ -1033,11 +1052,7 @@ export async function updateProgramWeek(newWeek) {
     }
 
     const phases = applyPhaseStatuses(recomputePhaseRanges(current.phases), newWeek);
-    const patch = {
-      current_week: newWeek,
-      phases,
-      updated_at: nowIso(),
-    };
+    const patch = { current_week: newWeek, phases, updated_at: nowIso() };
 
     const { error } = await sb.from("programs").update(patch).eq("id", current.id);
     if (error) {
@@ -1057,7 +1072,7 @@ export async function updateProgramWeek(newWeek) {
 /** Update program details (admin) **/
 export async function updateProgramDetails(programId, updates) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
 
     // fetch existing
     const { data: existing, error: getErr } = await sb.from("programs").select("*").eq("id", programId).single();
@@ -1070,12 +1085,11 @@ export async function updateProgramDetails(programId, updates) {
     if (Array.isArray(updates.phases)) {
       phases = applyPhaseStatuses(recomputePhaseRanges(updates.phases), current.currentWeek);
     } else {
-      // still recompute ranges to keep them normalized
       phases = applyPhaseStatuses(recomputePhaseRanges(phases), current.currentWeek);
     }
 
-    let totalWeeks = typeof updates.totalWeeks === "number" ? updates.totalWeeks
-                      : phases.reduce((acc, p) => acc + Number(p.weeks || 0), 0);
+    let totalWeeks =
+      typeof updates.totalWeeks === "number" ? updates.totalWeeks : phases.reduce((acc, p) => acc + Number(p.weeks || 0), 0);
 
     const patch = {
       name: updates.name ?? current.name,
@@ -1083,7 +1097,7 @@ export async function updateProgramDetails(programId, updates) {
       description: updates.description ?? current.description,
       start_date: updates.startDate ?? current.startDate ?? null,
       total_weeks: Number(totalWeeks),
-      current_week: Number(current.currentWeek), // unchanged here
+      current_week: Number(current.currentWeek), // unchanged
       status: updates.status ?? current.status,
       is_active: typeof updates.isActive === "boolean" ? updates.isActive : current.isActive,
       phases,
@@ -1113,16 +1127,19 @@ export async function updateProgramDetails(programId, updates) {
 /** Add phase (admin) **/
 export async function addProgramPhase(phaseData) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
     const current = await getCurrentProgram();
     if (!current) return { success: false, message: "No active program found" };
 
-    const phases = [...current.phases, {
-      id: `phase-${Date.now()}`,
-      name: phaseData.name,
-      weeks: Number(phaseData.weeks),
-      focus: phaseData.focus,
-    }];
+    const phases = [
+      ...current.phases,
+      {
+        id: `phase-${Date.now()}`,
+        name: phaseData.name,
+        weeks: Number(phaseData.weeks),
+        focus: phaseData.focus,
+      },
+    ];
 
     const normalized = recomputePhaseRanges(phases);
     const totalWeeks = normalized.reduce((acc, p) => acc + Number(p.weeks || 0), 0);
@@ -1151,7 +1168,7 @@ export async function addProgramPhase(phaseData) {
 /** Update phase (admin) **/
 export async function updateProgramPhase(phaseId, updates) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
     const current = await getCurrentProgram();
     if (!current) return { success: false, message: "No active program found" };
 
@@ -1186,7 +1203,7 @@ export async function updateProgramPhase(phaseId, updates) {
 /** Delete phase (admin) **/
 export async function deleteProgramPhase(phaseId) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
     const current = await getCurrentProgram();
     if (!current) return { success: false, message: "No active program found" };
 
@@ -1218,7 +1235,7 @@ export async function deleteProgramPhase(phaseId) {
 /** Reorder phases (admin) **/
 export async function reorderProgramPhases(newPhaseOrderIds) {
   try {
-    const sb = getSb();
+    const sb = getSbAdmin?.() || getSb();
     const current = await getCurrentProgram();
     if (!current) return { success: false, message: "No active program found" };
 
@@ -1248,6 +1265,55 @@ export async function reorderProgramPhases(newPhaseOrderIds) {
   } catch (e) {
     console.error("[reorderProgramPhases] unexpected:", e);
     return { success: false, message: "Failed to reorder program phases" };
+  }
+}
+
+/** Set a program as active (deactivate all others) **/
+export async function setActiveProgram(programId) {
+  const sb = getSbAdmin?.() || getSb();
+
+  try {
+    // Deactivate others
+    const deact = await sb
+      .from("programs")
+      .update({ is_active: false, status: "inactive", updated_at: nowIso() })
+      .neq("id", programId);
+    if (deact.error) throw deact.error;
+
+    // Activate selected
+    const { error } = await sb
+      .from("programs")
+      .update({ is_active: true, status: "active", updated_at: nowIso() })
+      .eq("id", programId);
+    if (error) throw error;
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { success: true };
+  } catch (e) {
+    console.error("[setActiveProgram] error:", e);
+    return { success: false, message: e.message || "Failed to set active program" };
+  }
+}
+
+/** Delete a program (hard delete) **/
+export async function deleteProgram(programId) {
+  const sb = getSbAdmin?.() || getSb();
+  try {
+    // If you don't have ON DELETE CASCADE for related tables, delete/update dependents here:
+    // await sb.from("program_phases").delete().eq("program_id", programId);
+    // await sb.from("workout_classes").update({ program_id: null }).eq("program_id", programId); // or delete()
+
+    const { error } = await sb.from("programs").delete().eq("id", programId);
+    if (error) throw error;
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    revalidatePath("/programs");
+    return { success: true };
+  } catch (e) {
+    console.error("[deleteProgram] error:", e);
+    return { success: false, message: e.message || "Failed to delete program" };
   }
 }
 
