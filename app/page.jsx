@@ -19,8 +19,52 @@ import { HeroSection } from "@/components/hero-section";
 import { ProgramCalendar } from "@/components/program-calendar";
 import { VisitorWorkoutBreakdown } from "@/components/visitor-workout-breakdown";
 import ClassCounter from "@/components/ClassCounter";
-import { fetchClassById } from "@/app/fetch-class-by-id";
 import { normalizeWorkoutBreakdown } from "@/lib/normalize";
+
+/* ---------- Helpers: numbering + timezone-correct today (pure JS) ---------- */
+function pad3(n) {
+  return String(n).padStart(3, "0");
+}
+
+function sortAndNumber(list) {
+  const copy = [...(list || [])];
+  copy.sort((a, b) => {
+    const da = a && a.date ? a.date : "";
+    const db = b && b.date ? b.date : "";
+    if (da < db) return -1;
+    if (da > db) return 1;
+
+    const ta = a && a.time ? a.time : "";
+    const tb = b && b.time ? b.time : "";
+    if (ta < tb) return -1;
+    if (ta > tb) return 1;
+
+    const ia = a && a.id != null ? Number(a.id) : 0;
+    const ib = b && b.id != null ? Number(b.id) : 0;
+    return ia - ib;
+  });
+
+  return copy.map((c, i) => ({
+    ...c,
+    display_no: i + 1,
+    display_no_padded: pad3(i + 1),
+  }));
+}
+
+function todayYMD(timeZone = "Asia/Karachi") {
+  // outputs YYYY-MM-DD in given TZ
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  const d = parts.find((p) => p.type === "day")?.value;
+  return `${y}-${m}-${d}`;
+}
+/* ------------------------------------------------------------------------- */
 
 export default function HomePage() {
   const [classes, setClasses] = useState([]);
@@ -30,44 +74,44 @@ export default function HomePage() {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [todaysWorkout, setTodaysWorkout] = useState(null);
 
-  // Unified loader via API (works with Supabase/pg on the server)
-  const fetchAllData = async () => {
+  async function fetchAllData() {
     const res = await fetch("/api/data", { cache: "no-store" });
     if (!res.ok) throw new Error("Failed to fetch /api/data");
     return res.json();
-  };
+  }
 
-  const refreshClasses = async () => {
+  async function refreshClasses() {
     try {
       console.log("[HomePage] refreshClasses...");
       const json = await fetchAllData();
 
-      // 🔧 Normalize workoutBreakdown so distance defaults to 100 when unit is meters
       const classesDataRaw = json.classes || [];
-      const classesData = classesDataRaw.map((c) => ({
+      const normalized = classesDataRaw.map((c) => ({
         ...c,
         workoutBreakdown: normalizeWorkoutBreakdown(c.workoutBreakdown),
       }));
 
-      setClasses(classesData);
+      const numbered = sortAndNumber(normalized);
+      setClasses(numbered);
 
-      const today = new Date().toISOString().split("T")[0];
-      const todayClass = classesData.find((cls) => cls.date === today);
+      const today = todayYMD();
+      const todayClass = numbered.find((cls) => cls.date === today);
       setTodaysWorkout(todayClass || null);
     } catch (error) {
       console.error("Error refreshing classes:", error);
     }
-  };
+  }
 
   useEffect(() => {
-    const loadData = async () => {
+    let mounted = true;
+
+    async function loadData() {
       try {
         console.log("[HomePage] initial data load...");
         const json = await fetchAllData();
 
-        // 🔧 Normalize right at load
         const classesDataRaw = json.classes || [];
-        const classesData = classesDataRaw.map((c) => ({
+        const normalized = classesDataRaw.map((c) => ({
           ...c,
           workoutBreakdown: normalizeWorkoutBreakdown(c.workoutBreakdown),
         }));
@@ -75,41 +119,46 @@ export default function HomePage() {
         const programData = json.currentProgram || null;
         const allProgramsData = json.programs || [];
 
-        setClasses(classesData);
+        const numbered = sortAndNumber(normalized);
+        if (!mounted) return;
+
+        setClasses(numbered);
         setCurrentProgram(programData);
         setPrograms(allProgramsData);
 
-        const today = new Date().toISOString().split("T")[0];
-        const todayClass = classesData.find((cls) => cls.date === today);
+        const today = todayYMD();
+        const todayClass = numbered.find((cls) => cls.date === today);
         setTodaysWorkout(todayClass || null);
       } catch (error) {
         console.error("Error loading data:", error);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    };
+    }
 
     loadData();
 
-    const handleAdminUpdate = (event) => {
+    function handleAdminUpdate(event) {
       console.log("[HomePage] Admin update received:", event.detail);
-      if (event.detail.type === "class") {
+      if (event.detail && event.detail.type === "class") {
         refreshClasses();
       }
-    };
+    }
 
     window.addEventListener("adminDataUpdated", handleAdminUpdate);
     const interval = setInterval(refreshClasses, 10000);
 
     return () => {
+      mounted = false;
       clearInterval(interval);
       window.removeEventListener("adminDataUpdated", handleAdminUpdate);
     };
   }, []);
 
+  // Keep global numbering (no renumbering after filter).
   const filteredClasses = classes.filter((cls) => {
     if (selectedFilter === "all") return true;
-    const intensity = cls.intensity || cls.numericalIntensity || 5;
+    const intensity = cls.intensity ?? cls.numericalIntensity ?? 5;
     if (selectedFilter === "beginner") return intensity <= 5;
     if (selectedFilter === "intermediate") return intensity > 5 && intensity <= 10;
     if (selectedFilter === "advanced") return intensity > 10;
@@ -234,14 +283,14 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Today's Workout Section - Only show if there's actually a class today */}
+      {/* Today's Workout Section */}
       {todaysWorkout ? (
         <section className="py-20 bg-black border-t border-white/5">
           <div className="container mx-auto px-6 lg:px-12">
             <div className="text-center mb-16 animate-fade-in">
               <div className="inline-flex items-center gap-2 text-white/40 text-sm font-light tracking-wider uppercase mb-6">
                 <div className="w-8 h-px bg-accent"></div>
-                Today's Workout
+                {"Today's Workout"}
                 <div className="w-8 h-px bg-accent"></div>
               </div>
               <h2 className="font-display text-4xl lg:text-5xl font-thin text-white mb-6">
@@ -359,7 +408,6 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    {/* View Program (navigates to /programs/[id]) */}
                     {program?.id && (
                       <Link href={`/programs/${program.id}`}>
                         <Button className="w-full bg-accent hover:bg-accent/90 text-black font-medium px-6 py-3 group">
@@ -435,9 +483,18 @@ export default function HomePage() {
               <p className="text-white/60 text-lg font-light">No classes found for the selected filter.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 animate-fade-in"
+              style={{ animationDelay: "0.4s" }}
+            >
               {filteredClasses.map((cls, index) => (
                 <div key={cls.id} className="animate-fade-in" style={{ animationDelay: `${0.1 * index}s` }}>
+                  {/* To show the number above the card, uncomment:
+                  <div className="mb-2">
+                    <span className="rounded bg-zinc-900/80 border border-white/10 px-2 py-1 text-xs text-white/80">
+                      #{cls.display_no_padded ?? pad3(cls.display_no ?? index + 1)}
+                    </span>
+                  </div> */}
                   <ModernClassCard cls={cls} />
                 </div>
               ))}
