@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -20,6 +20,9 @@ export function SponsorshipForm() {
   const [submitted, setSubmitted] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  // Keep a ref for the honeypot so we don't query the DOM
+  const honeypotRef = useRef<HTMLInputElement | null>(null)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -28,37 +31,34 @@ export function SponsorshipForm() {
     try {
       if (!formData.companyName || !formData.contactName || !formData.email) {
         setErrorMsg("Please fill the required fields.")
-        setIsSubmitting(false)
         return
       }
 
-      const response = await fetch("https://formspree.io/f/xgvppqqg", {
+      const response = await fetch("/api/sponsorship-inquiry", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
-          _subject: `New Sponsorship Inquiry – ${formData.companyName}${formData.packageInterest ? ` (${formData.packageInterest})` : ""}`,
-          _replyto: formData.email, // lets you reply directly to the sender
+          _honeypot: honeypotRef.current?.value || "",
         }),
       })
 
-      if (response.ok) {
-        setSubmitted(true)
-        setFormData({
-          companyName: "",
-          contactName: "",
-          email: "",
-          phone: "",
-          packageInterest: "",
-          message: "",
-        })
-      } else {
-        const data = await response.json().catch(() => ({} as any))
-        setErrorMsg(data?.error || "Error submitting form. Please try again.")
+      if (!response.ok) {
+        const text = await response.text().catch(() => "")
+        setErrorMsg(text || "Error submitting form. Please try again.")
+        return
       }
+
+      // success
+      setSubmitted(true)
+      setFormData({
+        companyName: "",
+        contactName: "",
+        email: "",
+        phone: "",
+        packageInterest: "",
+        message: "",
+      })
     } catch (err) {
       console.error("Error submitting form:", err)
       setErrorMsg("Network error. Please try again.")
@@ -109,7 +109,14 @@ export function SponsorshipForm() {
         <div className="bg-gray-900 border border-gray-800 p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Honeypot to reduce spam */}
-            <input type="text" name="_honeypot" className="hidden" tabIndex={-1} autoComplete="off" />
+            <input
+              ref={honeypotRef}
+              type="text"
+              name="_honeypot"
+              className="hidden"
+              tabIndex={-1}
+              autoComplete="off"
+            />
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
